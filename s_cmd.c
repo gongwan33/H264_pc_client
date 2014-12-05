@@ -25,7 +25,7 @@ char* int32ToByteArray(int num)
 	return int32Arr;
 }	
 
-int sendCommand(int inCommand, int cfd)
+int sendCommand(int inCommand)
 {
 	int bRet = -2;
 	char szHeader[5] = "MO_O";
@@ -138,6 +138,27 @@ int sendCommand(int inCommand, int cfd)
 			length = 24;
 			break;
 
+		case Audio_Start_Req:
+			// 0 ~ 3 is "MO_O"
+			memcpy(bOut, szHeader, 4);
+			length = 4;
+			// 4 ~ 7 is command
+			memcpy(bOut + length, int32ToByteArray((int)Audio_Start_Req), 4);
+			length = 8;
+			// 8 ~ 14 set to 0
+			memset(bOut + length, 0, 7);
+			length = 15;
+			// 15 ~ 18 is the length = 1
+			memcpy(bOut + length, int32ToByteArray(1), 4);
+			length = 19;
+			// 19 ~ 22 set to 0
+			memset(bOut + length, 0, 4);
+			length = 23;
+			// 23 set to reserve = 1
+			*(bOut + length) = 1;
+			length = 24;
+			break;
+
 /*		case CMD_OP_CODE.Video_End:
 			// 0 ~ 3 is "MO_O"
 			bOut.write(szHeader.getBytes(), 0, 4);
@@ -165,41 +186,6 @@ int sendCommand(int inCommand, int cfd)
 				bOut.write(0x00);
 			break;
 
-		case CMD_OP_CODE.Audio_Start_Req:
-			audiosending = true;
-			// 0 ~ 3 is "MO_O"
-			bOut.write(szHeader.getBytes(), 0, 4);
-			// 4 ~ 7 is command
-			try
-			{
-				bOut.write(int32ToByteArray(CMD_OP_CODE.Audio_Start_Req));
-			} catch (IOException e)
-			{
-				e.printStackTrace();
-			}
-			// 8 ~ 14 set to 0
-			for (cX = 8; cX < 15; cX++)
-				bOut.write(0x00);
-			// 15 ~ 18 is the length = 1
-			try
-			{
-				bOut.write(int32ToByteArray(1));
-			} catch (IOException e)
-			{
-				e.printStackTrace();
-			}
-			// 19 ~ 22 set to 0
-			for (cX = 19; cX < 23; cX++)
-				bOut.write(0x00);
-			// 23 set to reserve = 1
-			try
-			{
-				bOut.write(int8ToByteArray(1));
-			} catch (IOException e)
-			{
-				e.printStackTrace();
-			}
-			break;
 
 		case CMD_OP_CODE.Audio_End:
 			audiosending = false;

@@ -106,10 +106,16 @@ char *byteArrayToString(char *inByteArray, int iOffset, int iLen)
 	return bToS;
 }
 
-int videoEnable(int cfg)
+int videoEnable()
 {
 	printf("video start====>\n");
-	sendCommand(Video_Start_Req, cfg);
+	sendCommand(Video_Start_Req);
+}
+
+int audioEnable()
+{
+    printf("audio start====>\n");
+	sendCommand(Audio_Start_Req);
 }
 
 int startAVReceive(int *fd)
@@ -142,7 +148,7 @@ int startAVReceive(int *fd)
     return 0;
 }
 
-void Parse_Packet(int inCode, char *inPacket, int len, int cfg)
+void Parse_Packet(int inCode, char *inPacket, int len)
 {
     int Video_Start_Resp_iResult = 0;
 	int Video_Start_Resp_iLinkID = 0;
@@ -210,7 +216,7 @@ void Parse_Packet(int inCode, char *inPacket, int len, int cfg)
 			{
 				// MAX connections
 			}
-			sendCommand(Verify_Req, cfg);
+			sendCommand(Verify_Req);
 			break;
 
 		case Verify_Resp:
@@ -223,7 +229,7 @@ void Parse_Packet(int inCode, char *inPacket, int len, int cfg)
 				{
 					iStatus = STATE_VERI_RECEIVE;
 				}
-				videoEnable(cfg);
+				videoEnable();
 			} 
 			else if (Verify_Resp_iResult == 1)
 			{
@@ -270,6 +276,9 @@ void Parse_Packet(int inCode, char *inPacket, int len, int cfg)
 			}
 			else
 				printf("VideoLinkID is incorrect!\n");
+
+	        audioEnable();
+
 			break;
 
 		case Audio_Start_Resp:
@@ -338,7 +347,7 @@ void *receiveThread(void *argc)
 		{
 			lastcmdtime1 = curTime;
 
-			sendCommand(Keep_Alive, *(int *)argc);
+			sendCommand(Keep_Alive);
 			if (pingconnect == 0)
 			{
 				looseconnection++;
@@ -356,7 +365,7 @@ void *receiveThread(void *argc)
 
 		// Receive packet
 
-		int iReadLen = recv(*(int *)argc, bBuffer, RECV_BUFFER_SIZE, 0);
+		int iReadLen = recv(cfd, bBuffer, RECV_BUFFER_SIZE, 0);
 		int x = 0;
 
 		if(iReadLen + bufInputP <= RECV_BUFFER_SIZE*2)
@@ -387,7 +396,7 @@ void *receiveThread(void *argc)
 
 				bufInputP = bufInputP - iHeaderLen - iContentLen;
 
-				Parse_Packet(iOpCode, bPacket, iContentLen, *(int *)argc);
+				Parse_Packet(iOpCode, bPacket, iContentLen);
 			}
 
 			free(header);

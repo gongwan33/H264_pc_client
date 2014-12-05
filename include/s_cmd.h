@@ -24,10 +24,11 @@ enum op{
     Keep_Alive
 } CMD_OP_CODE;
 
-int sendCommand(int cmd, int cfd);
+int sendCommand(int cmd);
 
 extern char fps;
 extern int ChNum[4];
+extern int cfd;
 
 
 #endif

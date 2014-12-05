@@ -44,6 +44,7 @@ extern char *bAudio;
 
 extern int connected;
 extern int iStatus;
+extern int cfd;
 
 void *receiveThread(void *agrc);
 void *AVReceiver(void *argc);

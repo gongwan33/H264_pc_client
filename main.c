@@ -19,7 +19,7 @@ int main()
 {
 	struct sockaddr_in s_add,c_add;
 	unsigned short portnum=80;
- 
+
 	printf("Hello,welcome to client !\r\n");
 
     BlowfishKeyInit(BLOWFISH_KEY, strlen(BLOWFISH_KEY));
@@ -48,8 +48,8 @@ int main()
 	printf("connect ok !\r\n");
 
 	//connect completed! Start protocal!----------------------------------------------------------
-    pthread_create(&tid, NULL, receiveThread, (void *)&cfd);
-	sendCommand(Login_Req, cfd);
+    pthread_create(&tid, NULL, receiveThread, NULL);
+	sendCommand(Login_Req);
 
 	getchar();
 	connected = 0;
