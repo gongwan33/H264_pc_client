@@ -6,7 +6,9 @@
 #include <string.h>
 
 #define BLOWFISH_KEY "-shanghai-hangzhou"
-void BlowfishKeyInit(char* strKey,int nLen);
+extern void BlowfishKeyInit(char* strKey,int nLen);
+extern void BlowfishEncrption(unsigned long * ,int len);
+extern void BlowfishDecrption(unsigned long * ,int len);
 
 #endif
 

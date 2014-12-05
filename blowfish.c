@@ -1,7 +1,5 @@
 #include "blowfish.h"
 
-extern void BlowfishEncrption(unsigned long * ,int len);
-extern void BlowfishDecrption(unsigned long * ,int len);
 #define SBOX_BEGIN 18
 const unsigned long sbox[4][256]=
 {

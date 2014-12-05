@@ -1,12 +1,14 @@
-objects = main.o blowfish.o 
+objects = main.o blowfish.o s_cmd.o r_cmd.o
 INCLUDE_DIR = ./include
-CFLAGS = -I./include
+CFLAGS = -I./include -lpthread
 
 client : $(objects) 
 	cc -o client $(objects) $(CFLAGS)
 
-main.o : $(INCLUDE_DIR)/blowfish.h
+main.o : $(INCLUDE_DIR)/blowfish.h $(INCLUDE_DIR)/s_cmd.h $(INCLUDE_DIR)/client.h
 blowfish.o : $(INCLUDE_DIR)/blowfish.h 
+s_cmd.o: $(INCLUDE_DIR)/blowfish.h $(INCLUDE_DIR)/s_cmd.h 
+r_cmd.o: $(INCLUDE_DIR)/blowfish.h $(INCLUDE_DIR)/r_cmd.h 
 
 .PHONY : clean 
 clean : 
