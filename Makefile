@@ -1,6 +1,6 @@
-objects = main.o blowfish.o s_cmd.o r_cmd.o
+objects = main.o blowfish.o s_cmd.o r_cmd.o playback.o
 INCLUDE_DIR = ./include
-CFLAGS = -I./include -lpthread
+CFLAGS = -I./include -lpthread -lasound
 
 client : $(objects) 
 	cc -o client $(objects) $(CFLAGS)
