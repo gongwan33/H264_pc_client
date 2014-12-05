@@ -9,20 +9,44 @@
 #include <s_cmd.h>
 #include <r_cmd.h>
 #include <client.h>
+#include <pthread.h>
 
 #define BTS_BUFFER 100
 
-char bToS[BTS_BUFFER];
 int AuNum[4];
 int connectdeep = 0;
 int looseconnection = 0;
 int pingconnect = 0;
 char *bBuffer = NULL;
+char *AVbBuffer = NULL;
 char *bufInput = NULL;
+char *AVbufInput = NULL;
 int bufInputP = 0;
+int AVbufInputP = 0;
 int iHeaderLen = 23;
 int iVideoLinkID = 0;
 int iAudioLinkID = 0;
+int avTimeStamp = 0;
+pthread_t avtid;
+char *bArrayImage = NULL;
+char *bAudio = NULL;
+
+long byteArrayToLong(char *inByteArray, int iOffset, int iLen) {
+	long iResult = 0;
+    int x = 0;
+	for (x = 0; x < iLen; x++) {
+		if ((x == 0) && (inByteArray[iOffset + (iLen - 1) - x] < 0))
+			iResult = iResult
+				| (0xffffffff & inByteArray[iOffset + (iLen - 1) - x]);
+		else
+			iResult = iResult
+				| (0x000000ff & inByteArray[iOffset + (iLen - 1) - x]);
+		if (x < (iLen - 1))
+			iResult = iResult << 8;
+	}
+
+	return iResult;
+}
 
 
 int byteArrayToInt(char *b, int offset) 
@@ -56,7 +80,14 @@ char *byteArrayToString(char *inByteArray, int iOffset, int iLen)
 	int iResult = 0;
     char ch[iLen];
     int x = 0;
+    char *bToS = NULL;
 
+	bToS = (char *)calloc(BTS_BUFFER, sizeof(char));
+	if(bToS == NULL)
+	{
+		printf("Memory error!\n");
+		return NULL;
+	}
 	for (x = 0; x < iLen; x++) {
 		ch[x] = inByteArray[x + iOffset];
 	}
@@ -75,7 +106,43 @@ char *byteArrayToString(char *inByteArray, int iOffset, int iLen)
 	return bToS;
 }
 
-void Parse_Packet(int inCode, char *inPacket, int len)
+int videoEnable(int cfg)
+{
+	printf("video start====>\n");
+	sendCommand(Video_Start_Req, cfg);
+}
+
+int startAVReceive(int *fd)
+{
+	struct sockaddr_in s_add,c_add;
+	unsigned short portnum=80;
+
+   	*fd = socket(AF_INET, SOCK_STREAM, 0);
+	if(-1 == *fd)
+	{
+		printf("avfd: socket fail ! \r\n");
+		return -1;
+	}
+	printf("avfd: socket ok !\r\n");
+
+	bzero(&s_add,sizeof(struct sockaddr_in));
+	s_add.sin_family=AF_INET;
+	s_add.sin_addr.s_addr= inet_addr(SERVER_IP);
+	s_add.sin_port=htons(portnum);
+	printf("avfd: s_addr = %#x ,port : %#x\r\n",s_add.sin_addr.s_addr,s_add.sin_port);
+
+	if(-1 == connect(*fd,(struct sockaddr *)(&s_add), sizeof(struct sockaddr)))
+	{
+		printf("avfd: connect fail !\r\n");
+		return -1;
+	}
+
+    pthread_create(&avtid, NULL, AVReceiver, NULL);
+
+    return 0;
+}
+
+void Parse_Packet(int inCode, char *inPacket, int len, int cfg)
 {
     int Video_Start_Resp_iResult = 0;
 	int Video_Start_Resp_iLinkID = 0;
@@ -100,8 +167,8 @@ void Parse_Packet(int inCode, char *inPacket, int len)
 				for (x = 0; x < 16; x++)
 					chCameraID[x] = (char) inPacket[2 + x];
 
-/*				char targetDevID = new String(chCameraID).substring(0, 15);
-				// Get firmware version
+/*				
+ 				// Get firmware version
 				int iCameraVer[4];
 				for (int x = 0; x < 4; x++)
 				{
@@ -138,10 +205,12 @@ void Parse_Packet(int inCode, char *inPacket, int len)
 					AuNum[x] = byteArrayToIntLen(inPacket, 46 + x * 4, 4);
 					// Log.e("AuNum", "AuNum["+x+"]is "+AuNum[x]);
 				}
-			} else if (Login_Resp_iResult == 2)
+			} 
+			else if (Login_Resp_iResult == 2)
 			{
 				// MAX connections
 			}
+			sendCommand(Verify_Req, cfg);
 			break;
 
 		case Verify_Resp:
@@ -154,15 +223,19 @@ void Parse_Packet(int inCode, char *inPacket, int len)
 				{
 					iStatus = STATE_VERI_RECEIVE;
 				}
-			} else if (Verify_Resp_iResult == 1)
+				videoEnable(cfg);
+			} 
+			else if (Verify_Resp_iResult == 1)
 			{
 				// Result = user error
 				printf("Verify_Resp Result = user error\n");
-			} else if (Verify_Resp_iResult == 5)
+			} 
+			else if (Verify_Resp_iResult == 5)
 			{
 				// password error
 				printf("Verify_Resp Result = password error\n");
-			} else
+			}
+		   	else
 			{
 				// unknown error
 				printf("Verify_Resp Result = unknown error\n");
@@ -189,6 +262,14 @@ void Parse_Packet(int inCode, char *inPacket, int len)
 			{
 				// unknown
 			}
+	        printf("iVideoLinkID = %d\n", iVideoLinkID);
+			if(iVideoLinkID != 0)
+			{
+				if(0 != startAVReceive(&avfd))
+					printf("AVReceiver start failed!\n");
+			}
+			else
+				printf("VideoLinkID is incorrect!\n");
 			break;
 
 		case Audio_Start_Resp:
@@ -220,7 +301,6 @@ void Parse_Packet(int inCode, char *inPacket, int len)
 			break;
 	}
 }
-
 
 
 void *receiveThread(void *argc)
@@ -307,11 +387,107 @@ void *receiveThread(void *argc)
 
 				bufInputP = bufInputP - iHeaderLen - iContentLen;
 
-				Parse_Packet(iOpCode, bPacket, iContentLen);
+				Parse_Packet(iOpCode, bPacket, iContentLen, *(int *)argc);
 			}
+
+			free(header);
 		}
 	}
 
 	free(bBuffer);
 	free(bufInput);
 }
+
+void Parse_AVPacket(int inCode, char *inPacket, int headOffset)
+{
+    int Audio_Data_iAudioLen = 0;
+	switch (inCode)
+	{
+		case Video_Data:
+			connectdeep = 1;
+			int Video_Data_iVideoLen = byteArrayToIntLen(inPacket, headOffset + 9, 4);
+
+			printf("recv video data, %d\n", Video_Data_iVideoLen);
+
+			int timestamp = byteArrayToIntLen(inPacket, 0, 4);
+			int frametime = byteArrayToIntLen(inPacket, headOffset + 4, 4);
+			int preserve = byteArrayToIntLen(inPacket, headOffset + 8, 1);
+			bArrayImage = (char *)calloc(Video_Data_iVideoLen, sizeof(char));
+			memcpy(bArrayImage, inPacket + headOffset + 13,  Video_Data_iVideoLen);
+
+			break;
+
+		case Audio_Data:
+			Audio_Data_iAudioLen = byteArrayToIntLen(inPacket, headOffset + 13, 4); 
+
+			printf("recv audio data, %d\n", Audio_Data_iAudioLen);
+
+			bAudio = (char *)calloc(Audio_Data_iAudioLen, sizeof(char));
+			memcpy(bAudio, inPacket + headOffset + 17, Audio_Data_iAudioLen);
+			int Audio_Data_paraSample = byteArrayToIntLen(inPacket, headOffset + 17 + Audio_Data_iAudioLen, 2);
+			int Audio_Data_paraIndex = byteArrayToIntLen(inPacket, headOffset + 17 + Audio_Data_iAudioLen + 2, 1);
+
+			int packetSeq = byteArrayToIntLen(inPacket, headOffset + 4, 4);
+			int graspstamp = byteArrayToIntLen(inPacket, headOffset + 8, 4);
+			int format = byteArrayToIntLen(inPacket, headOffset + 12, 1);
+
+			break;
+	}
+}
+
+
+void *AVReceiver(void *argc)
+{
+	AVbufInput = (char *)calloc(RECV_BUFFER_SIZE * 2, sizeof(char));
+	AVbufInputP = 0;
+	AVbBuffer = (char *)calloc(RECV_BUFFER_SIZE, sizeof(char));
+	while (connected)
+	{
+		int iReadLen = recv(avfd, AVbBuffer, RECV_BUFFER_SIZE, 0);
+		if(AVbufInputP + iReadLen <= RECV_BUFFER_SIZE * 2)
+		{
+		    memcpy(AVbufInput + AVbufInputP, AVbBuffer, iReadLen);
+		    AVbufInputP += iReadLen;
+		}
+//        printf("read AVpack, %d\n", iReadLen);
+
+		int skip_len = 0;
+		while (AVbufInputP >= iHeaderLen)
+		{
+			// Get a basic header
+			char bHeader[iHeaderLen];
+			int x = 0;
+			for (x = 0; x < iHeaderLen; x++)
+				bHeader[x] = (char) AVbufInput[skip_len + x];
+
+			char *header = byteArrayToString(bHeader, 0, 4);
+			int iOpCode = byteArrayToIntLen(bHeader, 4, 2);
+			int iContentLen = byteArrayToIntLen(bHeader, 15, 4);
+            
+//			printf("header = %s\n", header);
+
+			if ((AVbufInputP >= (skip_len + iHeaderLen + iContentLen)) && !strcmp(header, ("MO_V")))
+			{
+				avTimeStamp = byteArrayToLong(AVbufInput, skip_len + iHeaderLen, 4);
+				Parse_AVPacket(iOpCode, AVbufInput, skip_len + iHeaderLen);
+				skip_len += iContentLen + iHeaderLen;
+			} 
+			else
+			{
+				free(header);
+				break;
+			}
+
+			free(header);
+		}
+
+		int x = 0;
+		for(x = 0; x < AVbufInputP - skip_len; x++)
+		    AVbufInput[x] = AVbufInput[skip_len + x];
+		AVbufInputP = AVbufInputP - skip_len;
+	}
+	
+	free(AVbBuffer);
+	free(AVbufInput);
+}
+

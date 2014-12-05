@@ -7,20 +7,22 @@
 #include <s_cmd.h>
 #include <r_cmd.h>
 #include <pthread.h>
+#include <blowfish.h>
 
 int iStatus = STATE_DISCONNECTED; 
 int connected = 0;
+int cfd = -1;
+int avfd = -1;
+pthread_t tid;
 
 int main()
 {
-	int cfd = -1;
-	int writebytes;
-	int sin_size;
 	struct sockaddr_in s_add,c_add;
 	unsigned short portnum=80;
-	pthread_t tid;
-
+ 
 	printf("Hello,welcome to client !\r\n");
+
+    BlowfishKeyInit(BLOWFISH_KEY, strlen(BLOWFISH_KEY));
 
 	cfd = socket(AF_INET, SOCK_STREAM, 0);
 	if(-1 == cfd)
@@ -32,7 +34,7 @@ int main()
 
 	bzero(&s_add,sizeof(struct sockaddr_in));
 	s_add.sin_family=AF_INET;
-	s_add.sin_addr.s_addr= inet_addr("192.168.1.44");
+	s_add.sin_addr.s_addr= inet_addr(SERVER_IP);
 	s_add.sin_port=htons(portnum);
 	printf("s_addr = %#x ,port : %#x\r\n",s_add.sin_addr.s_addr,s_add.sin_port);
 
@@ -52,6 +54,11 @@ int main()
 	getchar();
 	connected = 0;
 	pthread_join(tid, NULL);
+	pthread_join(avtid, NULL);
+	if(bArrayImage)
+	    free(bArrayImage);
+	if(avfd != -1)
+		close(avfd);
 	close(cfd);
 	return 0;
 }

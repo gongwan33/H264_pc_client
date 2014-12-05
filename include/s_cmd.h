@@ -27,7 +27,7 @@ enum op{
 int sendCommand(int cmd, int cfd);
 
 extern char fps;
-extern int ChNum[];
+extern int ChNum[4];
 
 
 #endif
