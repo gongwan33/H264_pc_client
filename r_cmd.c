@@ -498,9 +498,9 @@ void *AVReceiver(void *argc)
 		}
 		else
 		{
-	     	for(x = 0; x < p; x++)
-		    AVbufInput[x] = AVbufInput[p + x];
             AVbufInputP -= p;  
+	     	for(x = 0; x < AVbufInputP; x++)
+		    AVbufInput[x] = AVbufInput[p + x];
 		}
 		
 		while (AVbufInputP > iHeaderLen)
@@ -511,11 +511,8 @@ void *AVReceiver(void *argc)
 			for (x = 0; x < iHeaderLen; x++)
 				bHeader[x] = AVbufInput[skip_len + x];
 
-			char *header = byteArrayToString(bHeader, 0, 4);
 			int iOpCode = byteArrayToIntLen(bHeader, 4, 2);
 			int iContentLen = byteArrayToIntLen(bHeader, 15, 4);
-            
-//			printf("header = %s\n", header);
 
 			if(iContentLen < 0)
 			{
@@ -523,7 +520,7 @@ void *AVReceiver(void *argc)
 				break;
 			}
 
-			if ((AVbufInputP >= (skip_len + iHeaderLen + iContentLen)) && !strcmp(header, "MO_V"))
+			if ((AVbufInputP >= (skip_len + iHeaderLen + iContentLen)))
 			{
 				avTimeStamp = byteArrayToLong(AVbufInput, skip_len + iHeaderLen, 4);
 				Parse_AVPacket(iOpCode, AVbufInput, skip_len + iHeaderLen);
@@ -531,11 +528,9 @@ void *AVReceiver(void *argc)
 			} 
 			else
 			{
-				free(header);
 				break;
 			}
 
-			free(header);
 		}
 
 		for(x = 0; x < AVbufInputP - skip_len; x++)
