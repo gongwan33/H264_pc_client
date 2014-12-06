@@ -57,6 +57,8 @@ int main()
 	pthread_join(avtid, NULL);
 	if(bArrayImage)
 	    free(bArrayImage);
+	if(bAudio.data)
+		free(bAudio.data);
 	if(avfd != -1)
 		close(avfd);
 	close(cfd);
