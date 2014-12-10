@@ -415,7 +415,7 @@ void Parse_AVPacket(int inCode, char *inPacket, int headOffset)
 {
     int Audio_Data_iAudioLen = 0;
 	adpcm_state_t adpcmState;
-	int *decodeBuffer = NULL;
+	short *decodeBuffer = NULL;
 	switch (inCode)
 	{
 		case Video_Data:
@@ -424,7 +424,7 @@ void Parse_AVPacket(int inCode, char *inPacket, int headOffset)
             if(Video_Data_iVideoLen <= 0)
 				break;
 
-			printf("recv video data, %d\n", Video_Data_iVideoLen);
+//			printf("recv video data, %d\n", Video_Data_iVideoLen);
 
 			int timestamp = byteArrayToIntLen(inPacket, 0, 4);
 			int frametime = byteArrayToIntLen(inPacket, headOffset + 4, 4);
@@ -439,9 +439,9 @@ void Parse_AVPacket(int inCode, char *inPacket, int headOffset)
 			if(Audio_Data_iAudioLen <= 0)
 				break;
 
-			printf("recv audio data, %d\n", Audio_Data_iAudioLen);
+//			printf("recv audio data, %d\n", Audio_Data_iAudioLen);
             
-			decodeBuffer = (int *)calloc(Audio_Data_iAudioLen, sizeof(int));
+			decodeBuffer = (short *)calloc(Audio_Data_iAudioLen * 2, sizeof(short));
 
 			int Audio_Data_paraSample = byteArrayToIntLen(inPacket, headOffset + 17 + Audio_Data_iAudioLen, 2);
 			int Audio_Data_paraIndex = byteArrayToIntLen(inPacket, headOffset + 17 + Audio_Data_iAudioLen + 2, 1);

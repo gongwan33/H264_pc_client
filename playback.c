@@ -40,13 +40,16 @@ int initPlayback(int channels, int rate)
 	/* Two channels (stereo) */
 	snd_pcm_hw_params_set_channels(handle, params, channels);
 
-	/* 44100 bits/second sampling rate (CD quality) */
+	/* 16000 bits/second sampling rate (CD quality) */
 	val = rate;
 	snd_pcm_hw_params_set_rate_near(handle, params,
 			&val, &dir);
 
-	/* Set period size to 32 frames. */
 	frames = 1024;
+	snd_pcm_uframes_t period = frames * 2;
+	snd_pcm_hw_params_set_buffer_size_near(handle, params, &period);
+
+	/* Set period size to 32 frames. */
 	snd_pcm_hw_params_set_period_size_near(handle,
 			params, &frames, &dir);
 
@@ -94,9 +97,11 @@ void *playbackThread(void *argc)
 	 while(connected)
 	 {
 		 char *buf = bAudio.getFunc();
-
 		 if(buf != NULL)
+		 {
+//            printf("buf %d %d %d\n", buf[0], buf[500], buf[1024]);
 			playback(buf, 1024);
+		 }
 		 else
 		 {
 			usleep(64000);

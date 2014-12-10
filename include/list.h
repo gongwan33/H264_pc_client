@@ -1,7 +1,7 @@
 #ifndef LIST_H
 #define LIST_H
 
-#define LIST_SPACE 2048*20
+#define LIST_SPACE 2048*50
 #define ITEM_SIZE 2048
 
 typedef char *(*getFunc_t)(void);

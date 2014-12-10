@@ -8,6 +8,6 @@ struct adpcm_state {
 
 typedef struct adpcm_state adpcm_state_t;
 
-void adpcm_decoder(char [], int [], int, struct adpcm_state *);
+void adpcm_decoder(char [], short [], int, struct adpcm_state *);
 
 #endif

@@ -20,10 +20,10 @@ static int stepsizeTable[89] = {
 	15289, 16818, 18500, 20350, 22385, 24623, 27086, 29794, 32767
 };
 
-void adpcm_decoder(char * const indata, int * const outdata, int len, adpcm_state_t *state)
+void adpcm_decoder(char * const indata, short * const outdata, int len, adpcm_state_t *state)
 {
 	signed char *inp;	/* Input buffer pointer */
-	int *outp;		/* output buffer pointer */
+	short *outp;		/* output buffer pointer */
 	int sign;			/* Current adpcm sign bit */
 	int delta;			/* Current adpcm output value */
 	int step;			/* Stepsize */
@@ -88,9 +88,10 @@ void adpcm_decoder(char * const indata, int * const outdata, int len, adpcm_stat
 		step = stepsizeTable[index];
 
 		/* Step 7 - Output value */
-//		*outp++ = valpred;
+		*outp = valpred;
+		outp++;
 	}
-
+    
 	state->valprev = valpred;
 	state->index = index;
 }
