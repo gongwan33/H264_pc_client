@@ -3,7 +3,8 @@
 
 #define RECV_BUFFER_SIZE 1024*1024
 #define SERVER_IP "192.168.1.44"
-#define AUDIO_BUFFER_SIZE 1024*20
+
+#include <list.h>
 
 enum STATUS_CONNECTION
 {
@@ -25,12 +26,6 @@ enum AV_OP_CODE
 	set_volume_Req
 };
 
-struct pcmAudio
-{
-    char *data;
-	int len;
-};
-
 extern int AuNum[4];
 extern int connectdeep;
 extern int looseconnection;
@@ -46,8 +41,9 @@ extern int iVideoLinkID;
 extern int iAudioLinkID;
 extern int avfd;
 extern pthread_t avtid;
+extern pthread_t playtid;
 extern unsigned char *bArrayImage;
-extern struct pcmAudio bAudio;
+extern struct List bAudio;
 
 extern int connected;
 extern int iStatus;

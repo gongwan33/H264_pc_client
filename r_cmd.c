@@ -11,10 +11,9 @@
 #include <client.h>
 #include <pthread.h>
 #include <adpcm.h>
+#include <playback.h>
 
 #define BTS_BUFFER 100
-
-struct pcmAudio bAudio;
 
 int AuNum[4];
 int connectdeep = 0;
@@ -31,6 +30,7 @@ int iVideoLinkID = 0;
 int iAudioLinkID = 0;
 int avTimeStamp = 0;
 pthread_t avtid;
+pthread_t playtid;
 unsigned char *bArrayImage = NULL;
 
 long byteArrayToLong(unsigned char *inByteArray, int iOffset, int iLen) {
@@ -118,6 +118,7 @@ int audioEnable()
 {
     printf("audio start====>\n");
 	sendCommand(Audio_Start_Req);
+	pthread_create(&playtid, NULL, playbackThread, NULL);
 }
 
 int startAVReceive(int *fd)
@@ -280,12 +281,7 @@ void Parse_Packet(int inCode, char *inPacket, int len)
 
 	        audioEnable();
 
-			bAudio.data = (unsigned char *)calloc(AUDIO_BUFFER_SIZE, sizeof(unsigned char));
-			bAudio.len = 0;
-			if(bAudio.data == NULL)
-			{
-				printf("audio calloc failed!\n");
-			}
+			initList();
             
 			break;
 
@@ -445,7 +441,7 @@ void Parse_AVPacket(int inCode, char *inPacket, int headOffset)
 
 			printf("recv audio data, %d\n", Audio_Data_iAudioLen);
             
-//			decodeBuffer = (int *)calloc(Audio_Data_iAudioLen, sizeof(int));
+			decodeBuffer = (int *)calloc(Audio_Data_iAudioLen, sizeof(int));
 
 			int Audio_Data_paraSample = byteArrayToIntLen(inPacket, headOffset + 17 + Audio_Data_iAudioLen, 2);
 			int Audio_Data_paraIndex = byteArrayToIntLen(inPacket, headOffset + 17 + Audio_Data_iAudioLen + 2, 1);
@@ -453,16 +449,15 @@ void Parse_AVPacket(int inCode, char *inPacket, int headOffset)
 			int packetSeq = byteArrayToIntLen(inPacket, headOffset + 4, 4);
 			int graspstamp = byteArrayToIntLen(inPacket, headOffset + 8, 4);
 			int format = byteArrayToIntLen(inPacket, headOffset + 12, 1);
-/*
+
 			adpcmState.valprev = (short) Audio_Data_paraSample;
 			adpcmState.index = (char) Audio_Data_paraIndex;
 
-		    adpcm_decoder(inPacket + headOffset + 17, decodeBuffer, Audio_Data_iAudioLen, &adpcmState);	
-			memcpy(bAudio.data, decodeBuffer, Audio_Data_iAudioLen * 4);
-			bAudio.len = Audio_Data_iAudioLen * 4;
+		    adpcm_decoder(inPacket + headOffset + 17, decodeBuffer, Audio_Data_iAudioLen, &adpcmState);
+		    bAudio.addFunc((char *)decodeBuffer);	
 
 			free(decodeBuffer);
-*/
+
 			break;
 	}
 }
@@ -488,19 +483,21 @@ void *AVReceiver(void *argc)
         //header scanner
 		int skip_len = 0;
 		int p = 0;
-		while((p < AVbufInputP) && (AVbufInput[p] != 'M' || AVbufInput[p+1] != 'O' || AVbufInput[p+2] != '_' || AVbufInput[p+3] != 'V'))
+		while((p < AVbufInputP - 3) && (AVbufInput[p] != 'M' || AVbufInput[p+1] != 'O' || AVbufInput[p+2] != '_' || AVbufInput[p+3] != 'V'))
 			p++;
 
-		if(p >= AVbufInputP)
+		if(p >= AVbufInputP - 3)
 		{
-            AVbufInputP = 0;
+	     	for(x = 0; x < 3; x++)
+				AVbufInput[x] = AVbufInput[AVbufInputP - 3 + x];
+            AVbufInputP = 3;
             continue;
 		}
 		else
 		{
             AVbufInputP -= p;  
 	     	for(x = 0; x < AVbufInputP; x++)
-		    AVbufInput[x] = AVbufInput[p + x];
+		        AVbufInput[x] = AVbufInput[p + x];
 		}
 		
 		while (AVbufInputP > iHeaderLen)
