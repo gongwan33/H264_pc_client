@@ -4,7 +4,6 @@
 #define RECV_BUFFER_SIZE 1024*1024
 #define SERVER_IP "192.168.1.44"
 
-#include <list.h>
 
 enum STATUS_CONNECTION
 {
@@ -41,7 +40,6 @@ extern int iVideoLinkID;
 extern int iAudioLinkID;
 extern int avfd;
 extern pthread_t avtid;
-extern pthread_t playtid;
 extern unsigned char *bArrayImage;
 extern struct List bAudio;
 

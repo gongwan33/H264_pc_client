@@ -55,12 +55,9 @@ int main()
 	connected = 0;
 	pthread_join(tid, NULL);
 	pthread_join(avtid, NULL);
-	pthread_join(playtid, NULL);
-	bAudio.clearFunc();
+	closePlayback();
 	if(bArrayImage)
 	    free(bArrayImage);
-	if(bAudio.data)
-		free(bAudio.data);
 	if(avfd != -1)
 		close(avfd);
 	close(cfd);

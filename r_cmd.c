@@ -30,7 +30,6 @@ int iVideoLinkID = 0;
 int iAudioLinkID = 0;
 int avTimeStamp = 0;
 pthread_t avtid;
-pthread_t playtid;
 unsigned char *bArrayImage = NULL;
 
 long byteArrayToLong(unsigned char *inByteArray, int iOffset, int iLen) {
@@ -118,7 +117,6 @@ int audioEnable()
 {
     printf("audio start====>\n");
 	sendCommand(Audio_Start_Req);
-	pthread_create(&playtid, NULL, playbackThread, NULL);
 }
 
 int startAVReceive(int *fd)
@@ -280,9 +278,7 @@ void Parse_Packet(int inCode, char *inPacket, int len)
 				printf("VideoLinkID is incorrect!\n");
 
 	        audioEnable();
-
-			initList();
-            
+            initPlayback(1, 16000);
 			break;
 
 		case Audio_Start_Resp:
@@ -424,7 +420,7 @@ void Parse_AVPacket(int inCode, char *inPacket, int headOffset)
             if(Video_Data_iVideoLen <= 0)
 				break;
 
-//			printf("recv video data, %d\n", Video_Data_iVideoLen);
+			printf("recv video data, %d\n", Video_Data_iVideoLen);
 
 			int timestamp = byteArrayToIntLen(inPacket, 0, 4);
 			int frametime = byteArrayToIntLen(inPacket, headOffset + 4, 4);
@@ -439,7 +435,7 @@ void Parse_AVPacket(int inCode, char *inPacket, int headOffset)
 			if(Audio_Data_iAudioLen <= 0)
 				break;
 
-//			printf("recv audio data, %d\n", Audio_Data_iAudioLen);
+			printf("recv audio data, %d\n", Audio_Data_iAudioLen);
             
 			decodeBuffer = (short *)calloc(Audio_Data_iAudioLen * 2, sizeof(short));
 
@@ -454,8 +450,8 @@ void Parse_AVPacket(int inCode, char *inPacket, int headOffset)
 			adpcmState.index = (char) Audio_Data_paraIndex;
 
 		    adpcm_decoder(inPacket + headOffset + 17, decodeBuffer, Audio_Data_iAudioLen, &adpcmState);
-		    bAudio.addFunc((char *)decodeBuffer);	
 
+			playback((char *)decodeBuffer, 1024);
 			free(decodeBuffer);
 
 			break;

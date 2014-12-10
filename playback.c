@@ -2,7 +2,6 @@
 #include <stdio.h>
 #include <alsa/asoundlib.h>
 #include <r_cmd.h>
-#include <list.h>
 
 static snd_pcm_t *handle;
 
@@ -89,24 +88,3 @@ int playback(char *buffer, int frames)
 	return 0;
 }
 
-void *playbackThread(void *argc)
-{
-     initPlayback(1, 16000);
-	 struct pcmAudio *audio = NULL;
-
-	 while(connected)
-	 {
-		 char *buf = bAudio.getFunc();
-		 if(buf != NULL)
-		 {
-//            printf("buf %d %d %d\n", buf[0], buf[500], buf[1024]);
-			playback(buf, 1024);
-		 }
-		 else
-		 {
-			usleep(64000);
-		 }
-	 }
-
-	 closePlayback();
-}
