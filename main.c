@@ -10,6 +10,7 @@
 #include <r_cmd.h>
 #include <blowfish.h>
 #include <playback.h>
+#include <decodeH264.h>
 
 int iStatus = STATE_DISCONNECTED; 
 int connected = 0;
@@ -59,6 +60,7 @@ int main()
 	pthread_join(tid, NULL);
 	pthread_join(avtid, NULL);
 	pthread_join(playtid, NULL);
+	pthread_join(h264tid, NULL);
 	clearList(&audioList);
 	if(bArrayImage)
 	    free(bArrayImage);

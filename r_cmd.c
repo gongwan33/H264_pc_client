@@ -14,6 +14,7 @@
 #include <adpcm.h>
 #include <playback.h>
 #include <buffer.h>
+#include <decodeH264.h>
 
 #define BTS_BUFFER 100
 
@@ -33,6 +34,7 @@ int iAudioLinkID = 0;
 int avTimeStamp = 0;
 pthread_t avtid;
 unsigned char *bArrayImage = NULL;
+int bArrayLen = 0;
 List audioList;
 
 long byteArrayToLong(unsigned char *inByteArray, int iOffset, int iLen) {
@@ -281,8 +283,7 @@ void Parse_Packet(int inCode, char *inPacket, int len)
 				printf("VideoLinkID is incorrect!\n");
 
 	        audioEnable();
-			initList(&audioList);
-			pthread_create(&playtid, NULL, playThread, NULL);
+			pthread_create(&h264tid, NULL, videoThread, NULL);
 			break;
 
 		case Audio_Start_Resp:
@@ -307,6 +308,10 @@ void Parse_Packet(int inCode, char *inPacket, int len)
 			{
 				// unknown
 			}
+
+			initList(&audioList);
+			pthread_create(&playtid, NULL, playThread, NULL);
+
 			break;
 
 		default:
@@ -431,8 +436,15 @@ void Parse_AVPacket(int inCode, char *inPacket, int headOffset)
 			int timestamp = byteArrayToIntLen(inPacket, 0, 4);
 			int frametime = byteArrayToIntLen(inPacket, headOffset + 4, 4);
 			int preserve = byteArrayToIntLen(inPacket, headOffset + 8, 1);
-//			bArrayImage = (char *)calloc(Video_Data_iVideoLen, sizeof(char));
-//			memcpy(bArrayImage, inPacket + headOffset + 13,  Video_Data_iVideoLen);
+
+			pthread_mutex_lock(&h264lock);
+
+			bArrayImage = (char *)malloc(Video_Data_iVideoLen);
+			memcpy(bArrayImage, inPacket + headOffset + 13,  Video_Data_iVideoLen);
+			bArrayLen = Video_Data_iVideoLen;
+			isnew = 1;
+
+			pthread_mutex_unlock(&h264lock);
 
 			break;
 

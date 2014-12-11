@@ -42,6 +42,7 @@ extern int iAudioLinkID;
 extern int avfd;
 extern pthread_t avtid;
 extern unsigned char *bArrayImage;
+extern int bArrayLen;
 extern struct List bAudio;
 
 extern int connected;
