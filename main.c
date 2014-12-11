@@ -4,10 +4,12 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <string.h>
+#include <pthread.h>
+
 #include <s_cmd.h>
 #include <r_cmd.h>
-#include <pthread.h>
 #include <blowfish.h>
+#include <playback.h>
 
 int iStatus = STATE_DISCONNECTED; 
 int connected = 0;
@@ -51,11 +53,13 @@ int main()
     pthread_create(&tid, NULL, receiveThread, NULL);
 	sendCommand(Login_Req);
 
-	getchar();
+	while(1);
+
 	connected = 0;
 	pthread_join(tid, NULL);
 	pthread_join(avtid, NULL);
-	closePlayback();
+	pthread_join(playtid, NULL);
+	clearList(&audioList);
 	if(bArrayImage)
 	    free(bArrayImage);
 	if(avfd != -1)

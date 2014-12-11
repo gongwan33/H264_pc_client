@@ -6,12 +6,14 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <string.h>
+
 #include <s_cmd.h>
 #include <r_cmd.h>
 #include <client.h>
 #include <pthread.h>
 #include <adpcm.h>
 #include <playback.h>
+#include <buffer.h>
 
 #define BTS_BUFFER 100
 
@@ -31,6 +33,7 @@ int iAudioLinkID = 0;
 int avTimeStamp = 0;
 pthread_t avtid;
 unsigned char *bArrayImage = NULL;
+List audioList;
 
 long byteArrayToLong(unsigned char *inByteArray, int iOffset, int iLen) {
 	long iResult = 0;
@@ -278,7 +281,8 @@ void Parse_Packet(int inCode, char *inPacket, int len)
 				printf("VideoLinkID is incorrect!\n");
 
 	        audioEnable();
-            initPlayback(1, 16000);
+			initList(&audioList);
+			pthread_create(&playtid, NULL, playThread, NULL);
 			break;
 
 		case Audio_Start_Resp:
@@ -451,7 +455,7 @@ void Parse_AVPacket(int inCode, char *inPacket, int headOffset)
 
 		    adpcm_decoder(inPacket + headOffset + 17, decodeBuffer, Audio_Data_iAudioLen, &adpcmState);
 
-			playback((char *)decodeBuffer, 1024);
+			putBuffer(&audioList, (char*)decodeBuffer);
 			free(decodeBuffer);
 
 			break;

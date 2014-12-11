@@ -4,6 +4,7 @@
 #define RECV_BUFFER_SIZE 1024*1024
 #define SERVER_IP "192.168.1.44"
 
+#include <buffer.h>
 
 enum STATUS_CONNECTION
 {
@@ -46,6 +47,7 @@ extern struct List bAudio;
 extern int connected;
 extern int iStatus;
 extern int cfd;
+extern List audioList;
 
 void *receiveThread(void *agrc);
 void *AVReceiver(void *argc);

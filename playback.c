@@ -4,6 +4,7 @@
 #include <r_cmd.h>
 
 static snd_pcm_t *handle;
+pthread_t playtid;
 
 int initPlayback(int channels, int rate)
 {
@@ -88,3 +89,18 @@ int playback(char *buffer, int frames)
 	return 0;
 }
 
+void *playThread(void *argc)
+{
+	char buffer[DATA_LEN];
+    int frames = 1024;
+
+    initPlayback(1, 16000);
+	while(connected)
+	{
+        getBuffer(&audioList, buffer);
+		playback(buffer, frames);
+	}
+	closePlayback();
+
+	return;
+}
