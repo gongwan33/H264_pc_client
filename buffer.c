@@ -33,7 +33,8 @@ int putBuffer(List *list, char *dat)
 {
     if(list->length >= LIST_LEN)
 	{
-       clearList(list); 
+	    printf("buffer.c: length not enough overwrite!\n");
+		clearList(list); 
 	}
 
 	Buffer *buf = (Buffer *)malloc(sizeof(Buffer));

@@ -405,6 +405,8 @@ void *receiveThread(void *argc)
 
 			free(header);
 		}
+		else
+			usleep(500000);
 	}
 
 	free(bBuffer);
@@ -474,67 +476,74 @@ void *AVReceiver(void *argc)
 		int iReadLen = recv(avfd, AVbBuffer, RECV_BUFFER_SIZE, 0);
 		if(AVbufInputP + iReadLen <= RECV_BUFFER_SIZE * 2)
 		{
-		    memcpy(AVbufInput + AVbufInputP, AVbBuffer, iReadLen);
-		    AVbufInputP += iReadLen;
+			memcpy(AVbufInput + AVbufInputP, AVbBuffer, iReadLen);
+			AVbufInputP += iReadLen;
 		}
 
-//        printf("read AVpack, %d\n", iReadLen);
+		//        printf("read AVpack, %d\n", iReadLen);
 
-        //header scanner
+		//header scanner
 		int skip_len = 0;
 		int p = 0;
-		while((p < AVbufInputP - 3) && (AVbufInput[p] != 'M' || AVbufInput[p+1] != 'O' || AVbufInput[p+2] != '_' || AVbufInput[p+3] != 'V'))
-			p++;
 
-		if(p >= AVbufInputP - 3)
+		if(AVbufInputP > iHeaderLen)
 		{
-	     	for(x = 0; x < 3; x++)
-				AVbufInput[x] = AVbufInput[AVbufInputP - 3 + x];
-            AVbufInputP = 3;
-            continue;
-		}
-		else
-		{
-            AVbufInputP -= p;  
-	     	for(x = 0; x < AVbufInputP; x++)
-		        AVbufInput[x] = AVbufInput[p + x];
-		}
-		
-		while (AVbufInputP > iHeaderLen)
-		{
-			// Get a basic header
-			unsigned char bHeader[iHeaderLen];
-			int x = 0;
-			for (x = 0; x < iHeaderLen; x++)
-				bHeader[x] = AVbufInput[skip_len + x];
 
-			int iOpCode = byteArrayToIntLen(bHeader, 4, 2);
-			int iContentLen = byteArrayToIntLen(bHeader, 15, 4);
+			while((p < AVbufInputP - 3) && (AVbufInput[p] != 'M' || AVbufInput[p+1] != 'O' || AVbufInput[p+2] != '_' || AVbufInput[p+3] != 'V'))
+				p++;
 
-			if(iContentLen < 0)
+			if(p >= AVbufInputP - 3)
 			{
-				skip_len += iHeaderLen;
-				break;
+				for(x = 0; x < 3; x++)
+					AVbufInput[x] = AVbufInput[AVbufInputP - 3 + x];
+				AVbufInputP = 3;
+				continue;
 			}
-
-			if ((AVbufInputP >= (skip_len + iHeaderLen + iContentLen)))
-			{
-				avTimeStamp = byteArrayToLong(AVbufInput, skip_len + iHeaderLen, 4);
-				Parse_AVPacket(iOpCode, AVbufInput, skip_len + iHeaderLen);
-				skip_len += iContentLen + iHeaderLen;
-			} 
 			else
 			{
-				break;
+				AVbufInputP -= p;  
+				for(x = 0; x < AVbufInputP; x++)
+					AVbufInput[x] = AVbufInput[p + x];
 			}
 
-		}
+			while (AVbufInputP > iHeaderLen)
+			{
+				// Get a basic header
+				unsigned char bHeader[iHeaderLen];
+				int x = 0;
+				for (x = 0; x < iHeaderLen; x++)
+					bHeader[x] = AVbufInput[skip_len + x];
 
-		for(x = 0; x < AVbufInputP - skip_len; x++)
-		    AVbufInput[x] = AVbufInput[skip_len + x];
-		AVbufInputP = AVbufInputP - skip_len;
+				int iOpCode = byteArrayToIntLen(bHeader, 4, 2);
+				int iContentLen = byteArrayToIntLen(bHeader, 15, 4);
+
+				if(iContentLen < 0)
+				{
+					skip_len += iHeaderLen;
+					break;
+				}
+
+				if ((AVbufInputP >= (skip_len + iHeaderLen + iContentLen)))
+				{
+					avTimeStamp = byteArrayToLong(AVbufInput, skip_len + iHeaderLen, 4);
+					Parse_AVPacket(iOpCode, AVbufInput, skip_len + iHeaderLen);
+					skip_len += iContentLen + iHeaderLen;
+				} 
+				else
+				{
+					break;
+				}
+
+			}
+
+			for(x = 0; x < AVbufInputP - skip_len; x++)
+				AVbufInput[x] = AVbufInput[skip_len + x];
+			AVbufInputP = AVbufInputP - skip_len;
+		}
+		else
+			usleep(800);
 	}
-	
+
 	free(AVbBuffer);
 	free(AVbufInput);
 }

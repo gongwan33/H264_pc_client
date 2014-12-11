@@ -96,15 +96,16 @@ void *playThread(void *argc)
 	char buffer[DATA_LEN];
     int frames = 1024;
 
+	sleep(2);
     initPlayback(1, AUDIO_RATE);
 	while(connected)
 	{
 		int rc = 0;
         rc = getBuffer(&audioList, buffer);
-//		if(rc == 0)
+		if(rc == 0)
 		    playback(buffer, frames);
-//		else
-			usleep(14000);
+		else
+			usleep(128000);
 	}
 	closePlayback();
 
