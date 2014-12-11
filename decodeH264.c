@@ -77,7 +77,6 @@ static void build_avpkt(AVPacket *avpkt, char *data, int dataLen)
     nexthead = _find_head(&buffer[readptr], writeptr-readptr);  
     if (nexthead == 0)  
     {  
-        printf("failedfind next head...\n");  
         nexthead = writeptr - readptr;  
     }  
    

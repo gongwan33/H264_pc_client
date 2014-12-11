@@ -96,7 +96,7 @@ void *playThread(void *argc)
 	char buffer[DATA_LEN];
     int frames = 1024;
 
-	sleep(2);
+	sleep(1);
     initPlayback(1, AUDIO_RATE);
 	while(connected)
 	{

@@ -17,6 +17,11 @@
 #include <decodeH264.h>
 
 #define BTS_BUFFER 100
+//#define SAVE_VIDEO 
+
+#ifdef SAVE_VIDEO
+FILE *fp;
+#endif
 
 int AuNum[4];
 int connectdeep = 0;
@@ -283,7 +288,14 @@ void Parse_Packet(int inCode, char *inPacket, int len)
 				printf("VideoLinkID is incorrect!\n");
 
 	        audioEnable();
+#ifndef SAVE_VIDEO
 			pthread_create(&h264tid, NULL, videoThread, NULL);
+#endif
+
+#ifdef SAVE_VIDEO
+		    if( (fp = fopen("RecordH264.h264","a+")) == NULL)
+			    return 0;	  
+#endif
 			break;
 
 		case Audio_Start_Resp:
@@ -442,6 +454,10 @@ void Parse_AVPacket(int inCode, char *inPacket, int headOffset)
 			bArrayImage = (char *)malloc(Video_Data_iVideoLen);
 			memcpy(bArrayImage, inPacket + headOffset + 13,  Video_Data_iVideoLen);
 			bArrayLen = Video_Data_iVideoLen;
+
+#ifdef SAVE_VIDEO
+			fwrite(inPacket + headOffset + 13, Video_Data_iVideoLen, 1, fp);
+#endif
 			isnew = 1;
 
 			pthread_mutex_unlock(&h264lock);
@@ -485,7 +501,7 @@ void *AVReceiver(void *argc)
 	AVbBuffer = (unsigned char *)calloc(RECV_BUFFER_SIZE, sizeof(unsigned char));
 	while (connected)
 	{
-		int iReadLen = recv(avfd, AVbBuffer, RECV_BUFFER_SIZE, 0);
+		unsigned int iReadLen = recv(avfd, AVbBuffer, RECV_BUFFER_SIZE, 0);
 		if(AVbufInputP + iReadLen <= RECV_BUFFER_SIZE * 2)
 		{
 			memcpy(AVbufInput + AVbufInputP, AVbBuffer, iReadLen);
@@ -495,8 +511,8 @@ void *AVReceiver(void *argc)
 		//        printf("read AVpack, %d\n", iReadLen);
 
 		//header scanner
-		int skip_len = 0;
-		int p = 0;
+		unsigned int skip_len = 0;
+		unsigned int p = 0;
 
 		if(AVbufInputP > iHeaderLen)
 		{
@@ -526,8 +542,8 @@ void *AVReceiver(void *argc)
 				for (x = 0; x < iHeaderLen; x++)
 					bHeader[x] = AVbufInput[skip_len + x];
 
-				int iOpCode = byteArrayToIntLen(bHeader, 4, 2);
-				int iContentLen = byteArrayToIntLen(bHeader, 15, 4);
+				unsigned int iOpCode = byteArrayToIntLen(bHeader, 4, 2);
+				unsigned int iContentLen = byteArrayToIntLen(bHeader, 15, 4);
 
 				if(iContentLen < 0)
 				{
@@ -556,6 +572,10 @@ void *AVReceiver(void *argc)
 			usleep(800);
 	}
 
+#ifdef SAVE_VIDEO
+	fflush(fp);
+	fclose(fp);
+#endif
 	free(AVbBuffer);
 	free(AVbufInput);
 }
