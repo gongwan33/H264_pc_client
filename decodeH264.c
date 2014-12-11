@@ -14,8 +14,9 @@
 #include <pthread.h>
 
 #include <r_cmd.h>
+#include <videoBuffer.h>
 
-#define FILE_READING_BUFFER (1*1024*1024)  
+#define FILE_READING_BUFFER (500*1024)  
 
 static unsigned char *buffer; 
 static AVCodec *codec;  
@@ -25,64 +26,21 @@ static AVFrame *picture;
 //static uint8_t inbuf[INBUF_SIZE + FF_INPUT_BUFFER_PADDING_SIZE];  
 static char buf[1024];  
 static AVPacket avpkt;  
-static AVFrame frameRGB;  
+static AVFrame frameRGB;
 
 pthread_t h264tid;
 pthread_mutex_t h264lock;
-int isnew = 0;
 
-//通过查找0x000001或者0x00000001找到下一个数据包的头部  
-static int _find_head(unsigned char *buffer, int len)  
-{  
-    int i;  
-   
-    for(i = 512;i < len;i++)  
-    {  
-        if(buffer[i] == 0 && buffer[i+1] == 0 && buffer[i+2] == 0 && buffer[i+3] == 1)  
-            break;  
-        if(buffer[i] == 0 && buffer[i+1] == 0 && buffer[i+2] == 1)  
-            break;  
-    }  
-    if (i == len)  
-        return 0;
-  
-    if (i == 512)  
-        return 0;
-
-    return i;  
-}  
 
 //将文件中的一个数据包转换成AVPacket类型以便ffmpeg进行解码  
-static void build_avpkt(AVPacket *avpkt, char *data, int dataLen)  
+static int build_avpkt(AVPacket *avpkt)
 {  
-    static int readptr = 0;  
-    static int writeptr = 0;  
-    int len,toread;  
-   
-    int nexthead;  
-   
-    if(writeptr- readptr < FILE_READING_BUFFER)  
-    {  
-        memmove(buffer, &buffer[readptr], writeptr - readptr);  
-        writeptr -= readptr;  
-        readptr = 0;  
-        toread = FILE_READING_BUFFER - writeptr; 
-	    len = dataLen;
-	    memcpy(&buffer[writeptr], data, len);	
-        writeptr += len;  
-    }
-	else
-		printf("video buffer full!!!!\n");
-
-    nexthead = _find_head(&buffer[readptr], writeptr-readptr);  
-    if (nexthead == 0)  
-    {  
-        nexthead = writeptr - readptr;  
-    }  
-   
-    avpkt->size = nexthead;  
-    avpkt->data = &buffer[readptr];  
-    readptr += nexthead; 
+	int len;
+    if(-1 == getVideoBuffer(&vList, buffer, &len))
+		return -1;  
+    avpkt->size = len;  
+    avpkt->data = buffer;   
+	return 0;
 }
 
 int initVideo()
@@ -136,10 +94,14 @@ void closeVideo()
 }
 
 
-void video_decode(char *frameData, int len)
+void video_decode()
 {
 
-	build_avpkt(&avpkt, frameData, len);  
+	if(-1 == build_avpkt(&avpkt))
+	{
+		usleep(10000);
+		return;  
+	}
 
 	if(avpkt.size == 0)  
 		return;  
@@ -182,16 +144,6 @@ void *videoThread(void *argc)
 {
 	initVideo();
 	while(connected)
-	{
-		pthread_mutex_lock(&h264lock);
-		if(isnew == 1)
-		{
-		    video_decode(bArrayImage, bArrayLen);
-			isnew = 0;
-		}
-		else
-			usleep(1000);
-		pthread_mutex_unlock(&h264lock);
-	}
+	    video_decode();
 	closeVideo();
 }

@@ -3,11 +3,10 @@
 
 int initVideo();
 void closeVideo();
-void video_decode(char *frameData, int len);
+void video_decode();
 
 void *videoThread(void *argc);
 
 extern pthread_t h264tid;
 extern pthread_mutex_t h264lock;
-extern int isnew;
 #endif

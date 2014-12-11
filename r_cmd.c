@@ -15,6 +15,7 @@
 #include <playback.h>
 #include <buffer.h>
 #include <decodeH264.h>
+#include <videoBuffer.h>
 
 #define BTS_BUFFER 100
 //#define SAVE_VIDEO 
@@ -38,9 +39,8 @@ int iVideoLinkID = 0;
 int iAudioLinkID = 0;
 int avTimeStamp = 0;
 pthread_t avtid;
-unsigned char *bArrayImage = NULL;
-int bArrayLen = 0;
 List audioList;
+videoList vList;
 
 long byteArrayToLong(unsigned char *inByteArray, int iOffset, int iLen) {
 	long iResult = 0;
@@ -289,6 +289,7 @@ void Parse_Packet(int inCode, char *inPacket, int len)
 
 	        audioEnable();
 #ifndef SAVE_VIDEO
+			initVideoList(&vList);
 			pthread_create(&h264tid, NULL, videoThread, NULL);
 #endif
 
@@ -430,38 +431,30 @@ void *receiveThread(void *argc)
 	free(bufInput);
 }
 
-void Parse_AVPacket(int inCode, char *inPacket, int headOffset)
+void Parse_AVPacket(unsigned int inCode, unsigned char *inPacket, unsigned int headOffset)
 {
-    int Audio_Data_iAudioLen = 0;
+    unsigned int Audio_Data_iAudioLen = 0;
 	adpcm_state_t adpcmState;
 	short *decodeBuffer = NULL;
 	switch (inCode)
 	{
 		case Video_Data:
 			connectdeep = 1;
-			int Video_Data_iVideoLen = byteArrayToIntLen(inPacket, headOffset + 9, 4);
+			unsigned int Video_Data_iVideoLen = byteArrayToIntLen(inPacket, headOffset + 9, 4);
             if(Video_Data_iVideoLen <= 0)
 				break;
 
 			printf("recv video data, %d\n", Video_Data_iVideoLen);
 
-			int timestamp = byteArrayToIntLen(inPacket, 0, 4);
-			int frametime = byteArrayToIntLen(inPacket, headOffset + 4, 4);
-			int preserve = byteArrayToIntLen(inPacket, headOffset + 8, 1);
+			unsigned int timestamp = byteArrayToIntLen(inPacket, 0, 4);
+			unsigned int frametime = byteArrayToIntLen(inPacket, headOffset + 4, 4);
+			unsigned int preserve = byteArrayToIntLen(inPacket, headOffset + 8, 1);
 
-			pthread_mutex_lock(&h264lock);
-
-			bArrayImage = (char *)malloc(Video_Data_iVideoLen);
-			memcpy(bArrayImage, inPacket + headOffset + 13,  Video_Data_iVideoLen);
-			bArrayLen = Video_Data_iVideoLen;
+			putVideoBuffer(&vList, inPacket + headOffset + 13, Video_Data_iVideoLen);
 
 #ifdef SAVE_VIDEO
 			fwrite(inPacket + headOffset + 13, Video_Data_iVideoLen, 1, fp);
 #endif
-			isnew = 1;
-
-			pthread_mutex_unlock(&h264lock);
-
 			break;
 
 		case Audio_Data:

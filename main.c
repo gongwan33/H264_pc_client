@@ -62,8 +62,7 @@ int main()
 	pthread_join(playtid, NULL);
 	pthread_join(h264tid, NULL);
 	clearList(&audioList);
-	if(bArrayImage)
-	    free(bArrayImage);
+	clearVideoList(&vList);
 	if(avfd != -1)
 		close(avfd);
 	close(cfd);

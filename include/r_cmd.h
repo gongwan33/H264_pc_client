@@ -5,6 +5,7 @@
 #define SERVER_IP "192.168.1.44"
 
 #include <buffer.h>
+#include <videoBuffer.h>
 
 enum STATUS_CONNECTION
 {
@@ -41,14 +42,12 @@ extern int iVideoLinkID;
 extern int iAudioLinkID;
 extern int avfd;
 extern pthread_t avtid;
-extern unsigned char *bArrayImage;
-extern int bArrayLen;
-extern struct List bAudio;
 
 extern int connected;
 extern int iStatus;
 extern int cfd;
 extern List audioList;
+extern videoList vList;
 
 void *receiveThread(void *agrc);
 void *AVReceiver(void *argc);
