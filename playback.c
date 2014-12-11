@@ -78,7 +78,7 @@ int playback(char *buffer, int frames)
 
 	if (rc == -EPIPE) {
 		/* EPIPE means underrun */
-		printf("underrun occurred\n");
+//		printf("underrun occurred\n");
 		snd_pcm_prepare(handle);
 	} else if (rc < 0) {
 		printf("error from writei: %s\n", snd_strerror(rc));
@@ -97,8 +97,12 @@ void *playThread(void *argc)
     initPlayback(1, 16000);
 	while(connected)
 	{
-        getBuffer(&audioList, buffer);
-		playback(buffer, frames);
+		int rc = 0;
+        rc = getBuffer(&audioList, buffer);
+		if(rc == 0)
+		    playback(buffer, frames);
+		else
+			usleep(64000);
 	}
 	closePlayback();
 
