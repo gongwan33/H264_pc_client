@@ -110,7 +110,8 @@ void video_decode()
 		len = avcodec_decode_video2(c,picture, &got_picture, &avpkt);//解码每一帧  
 
 		IplImage *showImage = cvCreateImage(cvSize(picture->width, picture->height), 8, 3);  
-		avpicture_alloc((AVPicture*)&frameRGB, PIX_FMT_RGB24, picture->width, picture->height);  
+		avpicture_alloc((AVPicture *)&frameRGB, PIX_FMT_RGB24, picture->width, picture->height);  
+
 
 		if(len < 0) {  
 			printf("Error while decoding frame %d\n",frame);  
@@ -128,11 +129,14 @@ void video_decode()
 				showImage->imageSize = frameRGB.linesize[0];//指针赋值给要显示的图像  
 				showImage->imageData = (char *)frameRGB.data[0];  
 				cvShowImage("decode", showImage);//显示 
-				cvWaitKey(50);//设置0.5s显示一帧，如果不设置由于这是个循环，会导致看不到显示出来的图像  
+				cvWaitKey(30);//设置显示一帧，如果不设置由于这是个循环，会导致看不到显示出来的图像  
 			}
+			avpicture_free((AVPicture *)&frameRGB);
+			cvReleaseImage(&showImage);
 			sws_freeContext(scxt);
 			frame++;  
 		}  
+
 		avpkt.size -= len;  
 		avpkt.data += len;  
 	}  

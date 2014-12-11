@@ -23,6 +23,7 @@ void clearVideoList(videoList *list)
 	{
 		videoBuffer *buf = p;
 		p = p->next;
+		free(buf->data);
 		free(buf);
 	}
 	list->length = 0;
@@ -77,10 +78,12 @@ int getVideoBuffer(videoList *list, unsigned char *outdata, unsigned int *len)
 			videoBuffer *temp = list->head;
 		    list->head = list->head->next;
 			list->length--;
+			free(temp->data);
 			free(temp);
 		}
 		else
 		{
+			free(list->head->data);
 			free(list->head);
 			list->head = NULL;
 			list->tail = NULL;

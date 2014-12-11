@@ -2,7 +2,7 @@
 #define _BUFFER_H
 
 #define DATA_LEN 2048
-#define LIST_LEN 30 
+#define LIST_LEN 100 
 
 typedef struct s_Buffer 
 {
