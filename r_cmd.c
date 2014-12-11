@@ -459,8 +459,6 @@ void Parse_AVPacket(unsigned int inCode, unsigned char *inPacket, unsigned int h
 
 		case Audio_Data:
 			Audio_Data_iAudioLen = byteArrayToIntLen(inPacket, headOffset + 13, 4); 
-			if(Audio_Data_iAudioLen <= 0)
-				break;
 
 			printf("recv audio data, %d\n", Audio_Data_iAudioLen);
             
@@ -478,7 +476,7 @@ void Parse_AVPacket(unsigned int inCode, unsigned char *inPacket, unsigned int h
 
 		    adpcm_decoder(inPacket + headOffset + 17, decodeBuffer, Audio_Data_iAudioLen, &adpcmState);
 
-			putBuffer(&audioList, (char*)decodeBuffer);
+			putBuffer(&audioList, (unsigned char*)decodeBuffer);
 			free(decodeBuffer);
 
 			break;
@@ -500,8 +498,6 @@ void *AVReceiver(void *argc)
 			memcpy(AVbufInput + AVbufInputP, AVbBuffer, iReadLen);
 			AVbufInputP += iReadLen;
 		}
-
-		//        printf("read AVpack, %d\n", iReadLen);
 
 		//header scanner
 		unsigned int skip_len = 0;

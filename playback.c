@@ -3,7 +3,7 @@
 #include <alsa/asoundlib.h>
 #include <r_cmd.h>
 
-#define AUDIO_RATE 8000
+#define AUDIO_RATE 44100
 
 static snd_pcm_t *handle;
 pthread_t playtid;
@@ -80,7 +80,7 @@ int playback(char *buffer, int frames)
 
 	if (rc == -EPIPE) {
 		/* EPIPE means underrun */
-//		printf("underrun occurred\n");
+		printf("underrun occurred\n");
 		snd_pcm_prepare(handle);
 	} else if (rc < 0) {
 		printf("error from writei: %s\n", snd_strerror(rc));
@@ -96,7 +96,7 @@ void *playThread(void *argc)
 	char buffer[DATA_LEN];
     int frames = 1024;
 
-	sleep(1);
+	usleep(2500000);
     initPlayback(1, AUDIO_RATE);
 	while(connected)
 	{
