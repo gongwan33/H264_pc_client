@@ -3,6 +3,8 @@
 #include <alsa/asoundlib.h>
 #include <r_cmd.h>
 
+#define AUDIO_RATE 8000
+
 static snd_pcm_t *handle;
 pthread_t playtid;
 
@@ -94,15 +96,15 @@ void *playThread(void *argc)
 	char buffer[DATA_LEN];
     int frames = 1024;
 
-    initPlayback(1, 16000);
+    initPlayback(1, AUDIO_RATE);
 	while(connected)
 	{
 		int rc = 0;
         rc = getBuffer(&audioList, buffer);
-		if(rc == 0)
+//		if(rc == 0)
 		    playback(buffer, frames);
-		else
-			usleep(64000);
+//		else
+			usleep(14000);
 	}
 	closePlayback();
 

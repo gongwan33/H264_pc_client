@@ -439,7 +439,7 @@ void Parse_AVPacket(int inCode, char *inPacket, int headOffset)
 			if(Audio_Data_iAudioLen <= 0)
 				break;
 
-		//	printf("recv audio data, %d\n", Audio_Data_iAudioLen);
+			printf("recv audio data, %d\n", Audio_Data_iAudioLen);
             
 			decodeBuffer = (short *)malloc(Audio_Data_iAudioLen * 4);
 
