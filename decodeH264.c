@@ -110,7 +110,7 @@ void video_decode()
 		len = avcodec_decode_video2(c,picture, &got_picture, &avpkt);//解码每一帧  
 
 		IplImage *showImage = cvCreateImage(cvSize(picture->width, picture->height), 8, 3);  
-		avpicture_alloc((AVPicture *)&frameRGB, PIX_FMT_RGB24, picture->width, picture->height);  
+		avpicture_alloc((AVPicture *)&frameRGB, PIX_FMT_BGR24, picture->width, picture->height);  
 
 
 		if(len < 0) {  
@@ -121,8 +121,7 @@ void video_decode()
 			/* thepicture is allocated by the decoder. no need to free it */  
 			//将YUV420格式的图像转换成RGB格式所需要的转换上下文  
 			struct SwsContext * scxt = (struct SwsContext *)sws_getContext(picture->width, picture->height, PIX_FMT_YUV420P,  
-					picture->width, picture->height, PIX_FMT_RGB24,  
-					2,NULL,NULL,NULL);  
+					picture->width, picture->height, PIX_FMT_BGR24, 2,NULL,NULL,NULL);  
 			if(scxt != NULL)  
 			{  
 				sws_scale(scxt, picture->data, picture->linesize, 0, c->height, frameRGB.data, frameRGB.linesize);//图像格式转换  
