@@ -70,11 +70,14 @@ int getBuffer(List *list, char *outdata)
 
 		if(list->head != list->tail)
 		{
+			Buffer *temp = list->head;
 		    list->head = list->head->next;
 			list->length--;
+			free(temp);
 		}
 		else
 		{
+			free(list->head);
 			list->head = NULL;
 			list->tail = NULL;
 			list->length = 0;

@@ -441,7 +441,7 @@ void Parse_AVPacket(int inCode, char *inPacket, int headOffset)
 
 			printf("recv audio data, %d\n", Audio_Data_iAudioLen);
             
-			decodeBuffer = (short *)calloc(Audio_Data_iAudioLen * 2, sizeof(short));
+			decodeBuffer = (short *)malloc(Audio_Data_iAudioLen * 4);
 
 			int Audio_Data_paraSample = byteArrayToIntLen(inPacket, headOffset + 17 + Audio_Data_iAudioLen, 2);
 			int Audio_Data_paraIndex = byteArrayToIntLen(inPacket, headOffset + 17 + Audio_Data_iAudioLen + 2, 1);
