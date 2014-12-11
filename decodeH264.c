@@ -61,7 +61,7 @@ static void build_avpkt(AVPacket *avpkt, char *data, int dataLen)
    
     int nexthead;  
    
-    if(writeptr- readptr < 200 * 1024)  
+    if(writeptr- readptr < FILE_READING_BUFFER)  
     {  
         memmove(buffer, &buffer[readptr], writeptr - readptr);  
         writeptr -= readptr;  
@@ -70,7 +70,9 @@ static void build_avpkt(AVPacket *avpkt, char *data, int dataLen)
 	    len = dataLen;
 	    memcpy(&buffer[writeptr], data, len);	
         writeptr += len;  
-    }  
+    }
+	else
+		printf("video buffer full!!!!\n");
 
     nexthead = _find_head(&buffer[readptr], writeptr-readptr);  
     if (nexthead == 0)  
