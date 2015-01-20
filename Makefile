@@ -1,4 +1,4 @@
-objects = main.o blowfish.o s_cmd.o r_cmd.o playback.o adpcm.o buffer.o decodeH264.o videoBuffer.o
+objects = main.o blowfish.o s_cmd.o r_cmd.o playback.o adpcm.o buffer.o decodeH264.o videoBuffer.o p2p_slave.o
 INCLUDE_DIR = ./include
 CFLAGS = -I./include -lpthread -lasound -I/usr/local/include/opencv -I/usr/local/include  
 LIBS = `pkg-config --libs opencv`
@@ -15,6 +15,7 @@ playback.o: $(INCLUDE_DIR)/playback.h $(INCLUDE_DIR)/buffer.h
 buffer.o: $(INCLUDE_DIR)/buffer.h
 decodeH264.o: $(INCLUDE_DIR)/decodeH264.h
 videoBuffer.o: $(INCLUDE_DIR)/videoBuffer.h
+p2p_slave.o: $(INCLUDE_DIR)/p2p/JEAN_P2P.h
 
 .PHONY : clean 
 clean : 

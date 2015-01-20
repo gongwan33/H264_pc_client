@@ -129,32 +129,9 @@ int audioEnable()
 	sendCommand(Audio_Start_Req);
 }
 
-int startAVReceive(int *fd)
+int startAVReceive()
 {
-	struct sockaddr_in s_add,c_add;
-	unsigned short portnum=80;
-
-   	*fd = socket(AF_INET, SOCK_STREAM, 0);
-	if(-1 == *fd)
-	{
-		printf("avfd: socket fail ! \r\n");
-		return -1;
-	}
-	printf("avfd: socket ok !\r\n");
-
-	bzero(&s_add,sizeof(struct sockaddr_in));
-	s_add.sin_family=AF_INET;
-	s_add.sin_addr.s_addr= inet_addr(SERVER_IP);
-	s_add.sin_port=htons(portnum);
-
-	if(-1 == connect(*fd,(struct sockaddr *)(&s_add), sizeof(struct sockaddr)))
-	{
-		printf("avfd: connect fail !\r\n");
-		return -1;
-	}
-
     pthread_create(&avtid, NULL, AVReceiver, NULL);
-
     return 0;
 }
 
@@ -281,7 +258,7 @@ void Parse_Packet(int inCode, char *inPacket, int len)
 	        printf("iVideoLinkID = %d\n", iVideoLinkID);
 			if(iVideoLinkID != 0)
 			{
-				if(0 != startAVReceive(&avfd))
+				if(0 != startAVReceive())
 					printf("AVReceiver start failed!\n");
 			}
 			else
@@ -387,7 +364,7 @@ void *receiveThread(void *argc)
 
 		// Receive packet
 
-		int iReadLen = recv(cfd, bBuffer, RECV_BUFFER_SIZE, 0);
+		int iReadLen = recv_cmd(bBuffer, RECV_BUFFER_SIZE);
 		int x = 0;
 
 		if(iReadLen + bufInputP <= RECV_BUFFER_SIZE*2)
@@ -492,7 +469,7 @@ void *AVReceiver(void *argc)
 	AVbBuffer = (unsigned char *)calloc(RECV_BUFFER_SIZE, sizeof(unsigned char));
 	while (connected)
 	{
-		unsigned int iReadLen = recv(avfd, AVbBuffer, RECV_BUFFER_SIZE, 0);
+		unsigned int iReadLen = JEAN_recv_slave(AVbBuffer, RECV_BUFFER_SIZE, 4, 0);
 		if(AVbufInputP + iReadLen <= RECV_BUFFER_SIZE * 2)
 		{
 			memcpy(AVbufInput + AVbufInputP, AVbBuffer, iReadLen);

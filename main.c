@@ -11,39 +11,35 @@
 #include <blowfish.h>
 #include <playback.h>
 #include <decodeH264.h>
+#include <p2p/JEAN_P2P.h>
+
+#define server_port 61000
+#define local_port 6788
+#define server_ip "192.168.1.109"
 
 int iStatus = STATE_DISCONNECTED; 
 int connected = 0;
-int cfd = -1;
-int avfd = -1;
 pthread_t tid;
 
 int main()
 {
-	struct sockaddr_in s_add,c_add;
-	unsigned short portnum=80;
+	int ret = 0;
 
 	printf("Hello,welcome to client !\r\n");
 
     BlowfishKeyInit(BLOWFISH_KEY, strlen(BLOWFISH_KEY));
 
-	cfd = socket(AF_INET, SOCK_STREAM, 0);
-	if(-1 == cfd)
+	ret = JEAN_init_slave(server_port, local_port, server_ip);
+	if( 0 > ret )
 	{
-		printf("socket fail ! \r\n");
+		printf("init slave error");
 		return -1;
 	}
-	printf("socket ok !\r\n");
 
-	bzero(&s_add,sizeof(struct sockaddr_in));
-	s_add.sin_family=AF_INET;
-	s_add.sin_addr.s_addr= inet_addr(SERVER_IP);
-	s_add.sin_port=htons(portnum);
-	printf("s_addr = %#x ,port : %#x\r\n",s_add.sin_addr.s_addr,s_add.sin_port);
-
-	if(-1 == connect(cfd,(struct sockaddr *)(&s_add), sizeof(struct sockaddr)))
+	ret = init_CMD_CHAN();
+	if( 0 > ret )
 	{
-		printf("connect fail !\r\n");
+		printf("init cmd error");
 		return -1;
 	}
 
@@ -63,8 +59,9 @@ int main()
 	pthread_join(h264tid, NULL);
 	clearList(&audioList);
 	clearVideoList(&vList);
-	if(avfd != -1)
-		close(avfd);
-	close(cfd);
+
+	close_CMD_CHAN();
+	JEAN_close_slave();
+
 	return 0;
 }

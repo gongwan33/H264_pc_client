@@ -284,7 +284,7 @@ int sendCommand(int inCommand)
 
 	if (length > 0)
 	{
-		if(-1 == (writebytes = send(cfd, bOut, length, 0)))
+		if(-1 == (writebytes = send_cmd(bOut, length)))
 		{
 			printf("write data fail !\r\n");
 			bRet = -2;

@@ -2,7 +2,6 @@
 #define R_CMD_H
 
 #define RECV_BUFFER_SIZE 1024*1024
-#define SERVER_IP "192.168.1.44"
 
 #include <buffer.h>
 #include <videoBuffer.h>
@@ -40,12 +39,10 @@ extern int AVbufInputP;
 extern int iHeaderLen;
 extern int iVideoLinkID;
 extern int iAudioLinkID;
-extern int avfd;
 extern pthread_t avtid;
 
 extern int connected;
 extern int iStatus;
-extern int cfd;
 extern List audioList;
 extern videoList vList;
 
