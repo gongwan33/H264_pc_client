@@ -961,7 +961,7 @@ int JEAN_init_slave(int setServerPort, int setLocalPort, char *setIp)
 	return 0;
 }
 
-int JEAN_send_slave(char *data, int len, unsigned char priority, unsigned char video_analyse)
+int JEAN_send_slave(char *data, int len, unsigned char priority, unsigned char video_analyse, int video_head_len)
 {
 	int sendLen = 0;
     char *buffer;
