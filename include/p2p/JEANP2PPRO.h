@@ -60,3 +60,12 @@ struct retry_head {
     u_int32_t index;
     unsigned char direction;//direction = 0, to master; direction = 1, to slave
 };
+
+struct elm{
+	u_int32_t index;
+	unsigned int start;
+	unsigned int end;
+};
+
+
+

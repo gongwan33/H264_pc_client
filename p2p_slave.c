@@ -18,7 +18,7 @@
 #include <p2p/ring.h>
 #include <p2p/DSet.h>
 
-#define MAX_TRY 10
+#define MAX_TRY 5
 #define SEND_BUFF_SIZE 1024*3
 #define MAX_RECEIVE 1024*1024
 #define MAX_RECV_BUF 1024*1024*5
@@ -27,9 +27,8 @@
 #define KEEP_CONNECT_PACK 0
 //#define server_ip_1 "192.168.1.216"
 //#define server_ip_1 "192.168.1.114"
-#define server_ip_1 "192.168.1.109"
 //#define server_ip_1 "192.168.1.4"
-//#define server_ip_1 "58.214.236.114"
+#define server_ip_1 "23.89.232.109"
 
 #define USERNAME "wang"
 #define PASSWD "123456"
@@ -57,6 +56,7 @@ static unsigned int sendNum;
 static char* recvBuf;
 static char* recvProcessBuf;
 static char* recvProcessBackBuf;
+static char* tidyBuf;
 static pthread_t recvDat_id;
 static pthread_mutex_t recvBuf_lock;
 static unsigned int recvBufP;
@@ -369,17 +369,24 @@ void resend(char *data, int len, u_int32_t index)
 #endif
 }
 
+//#define PRINT_BACKBUF
+
 int findIndexInBuf(char *buf, int *start, int *end, int *datLen, u_int32_t index)
 {
 	int scanP = 0;
 	struct load_head head;
+	struct get_head get;
+	struct retry_head retry;
+	char * retryData = NULL;
 
-	while(scanP + sizeof(struct load_head) < *datLen)
+	while(scanP + sizeof(struct get_head) < *datLen)
 	{
 		if(buf[scanP] == 'J' && buf[scanP + 1] == 'E' && buf[scanP + 2] == 'A' && buf[scanP + 3] == 'N')
 		{
 			memcpy(&head, buf + scanP, sizeof(struct load_head));
-//			printf("BackBuf: index %d", head.index);
+#ifdef PRINT_BACKBUF
+			printf("BackBuf: index %d", head.index);
+#endif
 			if(index == head.index)
 			{
 				*start = scanP + sizeof(struct load_head);
@@ -397,14 +404,138 @@ int findIndexInBuf(char *buf, int *start, int *end, int *datLen, u_int32_t index
 		else
 			scanP++;
 	}
+#ifdef PRINT_BACKBUF
+	printf("\n", head.index);
+#endif
 
 	return -1;
 
 }
 
+int elmInPack(u_int32_t index, struct elm * list, int len)
+{
+	int i = 0;
+	for(i = 0; i < len; i++)
+	{
+		if(list[i].index == index)
+			return 1;
+	}
+	return 0;
+}	
+
+void changeElm(struct elm *list, int i, int j)
+{
+	u_int32_t tmpI = 0, tmpS = 0, tmpE = 0;
+	tmpI = list[i].index;
+	tmpS = list[i].start;
+	tmpE = list[i].end;
+	list[i].index = list[j].index;
+	list[i].start = list[j].start;
+	list[i].end = list[j].end;
+	list[j].index = tmpI;
+	list[j].start = tmpS;
+	list[j].end = tmpE;
+}	
+
+void elmSort(struct elm * list, int len)
+{
+	int i = 0, j = 0;
+	for(i = 0; i <= len; i++)
+	 for(j = i + 1; j <= len; j++)
+		if(list[i].index > list[j].index)
+			changeElm(list, i, j);
+}
+
+int tidyInBuf(char *buf, char *tidyBuf, int *len)
+{
+	int scanP = 0;
+	struct load_head head;
+	struct get_head get;
+	struct retry_head retry;
+	char * retryData = NULL;
+	struct elm elmPack[1000];
+	int elmPackP = 0;	
+	int resLen = 0;
+
+	while(scanP + sizeof(struct get_head) < *len)
+	{
+		if(scanP + sizeof(struct load_head) < *len && (buf[scanP] == 'J' && buf[scanP + 1] == 'E' && buf[scanP + 2] == 'A' && buf[scanP + 3] == 'N'))
+		{
+			memcpy(&head, buf + scanP, sizeof(struct load_head));
+
+			if(*len - scanP - sizeof(struct load_head) >= head.length)
+			{
+				if(elmPackP == 0 || !elmInPack(head.index, elmPack, elmPackP))
+				{
+					if(elmPackP < 999)
+						elmPackP++;
+					else
+						printf("elmPackP over flow!\n");
+
+					elmPack[elmPackP].index = head.index;
+					elmPack[elmPackP].start = scanP;
+					elmPack[elmPackP].end = scanP + head.length + sizeof(struct load_head);
+				}
+
+				scanP = scanP + sizeof(struct load_head) + head.length;
+			}
+			else
+				break;
+		}
+		else if(buf[scanP] == 'G' && buf[scanP + 1] == 'E' && buf[scanP + 2] == 'T')
+		{
+			memcpy(&get, buf + scanP, sizeof(struct get_head));
+#if PRINT
+			printf("get index: %d\n", get.index);
+#endif
+			unreg_buff(get.index);
+			scanP = scanP + sizeof(struct get_head);
+
+		}		
+		else if(buf[scanP] == 'R' && buf[scanP + 1] == 'T' && buf[scanP + 2] == 'Y')
+		{
+#if PRINT
+			printf("resend pack!!\n");
+#endif
+
+			int rLen = 0;
+			int rPrio = 0;
+			memcpy(&retry, buf + scanP, sizeof(struct retry_head));
+			retryData = getPointerByIndex(retry.index, &rLen, &rPrio);
+			if(retryData != NULL)
+			{
+				resend(retryData, rLen, retry.index);
+			}
+			else
+			{
+				resend(retryData, 0, retry.index);
+			}
+			scanP = scanP + sizeof(struct retry_head);
+
+		}
+		else
+			scanP++;
+	}
+
+	if(elmPackP >= 0)
+	{
+		elmSort(elmPack, elmPackP);
+
+		int i = 0;
+		for(i = 0; i <= elmPackP; i++)
+		{
+			memcpy(tidyBuf + resLen, buf + elmPack[i].start, elmPack[i].end - elmPack[i].start); 
+			resLen = resLen + elmPack[i].end - elmPack[i].start;
+		}
+
+		*len = resLen;
+	}
+	return 0;
+}
+
 int init_CMD_CHAN()
 {
-    struct sockaddr_in pin;
+	struct sockaddr_in pin;
 
 	bzero(&pin,sizeof(pin));
 	pin.sin_family = AF_INET;
@@ -485,7 +616,7 @@ void* recvData(void *argc)
 		printf("Fail to get recbuf size\n"); 
 	} 
 
-	set_rec_timeout(1, 0);//(usec, sec)
+	set_rec_timeout(0, 1);//(usec, sec)
 	while(recvSign)
 	{
 		recvLen = 0;
@@ -500,6 +631,7 @@ void* recvData(void *argc)
 		else 
 			break;
 
+		printf("rec %d\n", recvLen);
 		if(recvLen <= 0)
 		{
 //			usleep(100);
@@ -525,12 +657,13 @@ void* recvData(void *argc)
 			pauseSign = 0;
 
 //		printf("buf back point at %d, pauseSign = %d\n", recvProcessBackBufP, pauseSign);
-		if(pauseSign == 0 && recvProcessBackBufP >= 0)
+		if(pauseSign == 0 && recvProcessBackBufP > 0)
 		{
 #if PRINT
 			printf("pause status out!\n");
 #endif
-			memcpy(recvProcessBuf + recvProcessBufP, recvProcessBackBuf, recvProcessBackBufP);
+			tidyInBuf(recvProcessBackBuf, tidyBuf, &recvProcessBackBufP);
+			memcpy(recvProcessBuf + recvProcessBufP, tidyBuf, recvProcessBackBufP);
 			recvProcessBackBufP = 0;
 		}
 
@@ -543,6 +676,7 @@ void* recvData(void *argc)
 
 			while(scanP + sizeof(struct load_head) < recvProcessBufP)
 			{
+				printf("2\n");
 				if(recvProcessBuf[scanP] == 'J' && recvProcessBuf[scanP + 1] == 'E' && recvProcessBuf[scanP + 2] == 'A' && recvProcessBuf[scanP + 3] == 'N')
 				{
 					int lostNum = 0;
@@ -559,43 +693,56 @@ void* recvData(void *argc)
 						continue;
 					}
 
+					if(lostNum > 100)
+					{
+						lastIndex = head.index;
+						pauseSign = 0;
+						break;
+					}
+
 					if(head.index != 0 && lostNum > 1)
 					{
 						if(recvProcessBackBufP != 0)
 						{
-						    int start, end;
-						    int pri;
-                            pri = findIndexInBuf(recvProcessBackBuf, &start, &end, &recvProcessBackBufP, lastIndex + 1);
-					//		printf("found pack in back %d\n", pri);
-						    if(pri >= 0)
-						    {
-#if PRINT
-					            printf("load head: J %d\n", lastIndex + 1);
-#endif
-								if(pri > 0)
-								    sendGet(lastIndex + 1);
-								lastIndex = lastIndex + 1;
-								if(end - start > 0)
-									memcpy(recvBuf+recvBufP, recvProcessBackBuf + start, end - start);
-								else
+							int start, end;
+							int pri;
+							int j = 0;
+							for(j = 0; j < lostNum - 1; j++)
+							{
+								pri = findIndexInBuf(recvProcessBackBuf, &start, &end, &recvProcessBackBufP, lastIndex + j + 1);
+								//		printf("found pack in back %d\n", pri);
+								if(pri >= 0)
 								{
+									getLostNum++;
 #if PRINT
-									printf("Empty load!Actually lost.\n");
+									printf("load head: J %d\n", lastIndex + 1);
 #endif
-								}
+									if(pri > 0)
+										sendGet(lastIndex + 1);
+									lastIndex = lastIndex + j + 1;
+									if(end - start > 0)
+										memcpy(recvBuf + recvBufP, recvProcessBackBuf + start, end - start);
+									else
+									{
+#if PRINT
+										printf("Empty load!Actually lost.\n");
+#endif
+									}
 
-								break;
-						    }
+								}
+							}
+							break;
 						}
 #if PRINT
 						printf("lost pack happen, reget!!\n");
 #endif
                         int i = 0;
 						pauseSign = 1;
-						for(i = 1;i < lostNum; i++)
-						{
-							sendRetry(lastIndex + i);
-						}
+	//					for(i = 1;i < lostNum; i++)
+//						{
+//							sendRetry(lastIndex + i);
+							sendRetry(lastIndex + 1);
+//						}
 
 						if(recvProcessBackBufP + recvProcessBufP - scanP < MAX_RECV_BUF)
 						{
@@ -762,6 +909,7 @@ int JEAN_init_slave(int setServerPort, int setLocalPort, char *setIp)
     recvBuf = (char*)malloc(MAX_RECV_BUF);
     recvProcessBuf = (char*)malloc(MAX_RECV_BUF);
     recvProcessBackBuf = (char*)malloc(MAX_RECV_BUF);
+    tidyBuf = (char*)malloc(MAX_RECV_BUF);
 
     initRing();	
 	
@@ -1010,7 +1158,6 @@ int JEAN_send_slave(char *data, int len, unsigned char priority, unsigned char v
 		reg_buff(sendIndex, buffer, priority, len);
 	sendIndex++;
     sendNum += sendLen;
-
     return sendLen;
 }
 
@@ -1052,6 +1199,7 @@ int JEAN_close_slave()
 	free(recvBuf);
 	free(recvProcessBuf);
 	free(recvProcessBackBuf);
+	free(tidyBuf);
 	emptyRing();
 
 	pthread_mutex_destroy(&recvBuf_lock);
