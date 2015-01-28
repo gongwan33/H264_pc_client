@@ -28,7 +28,7 @@
 //#define server_ip_1 "192.168.1.216"
 //#define server_ip_1 "192.168.1.114"
 //#define server_ip_1 "192.168.1.4"
-#define server_ip_1 "23.89.232.109"
+#define server_ip_1 "192.168.1.109"
 
 #define USERNAME "wang"
 #define PASSWD "123456"
@@ -636,7 +636,6 @@ void* recvData(void *argc)
 		else 
 			break;
 
-		printf("rec %d\n", recvLen);
 		if(recvLen <= 0)
 		{
 //			usleep(100);
@@ -681,7 +680,6 @@ void* recvData(void *argc)
 
 			while(scanP + sizeof(struct load_head) < recvProcessBufP)
 			{
-				printf("2\n");
 				if(recvProcessBuf[scanP] == 'J' && recvProcessBuf[scanP + 1] == 'E' && recvProcessBuf[scanP + 2] == 'A' && recvProcessBuf[scanP + 3] == 'N')
 				{
 					int lostNum = 0;
