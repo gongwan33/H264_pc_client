@@ -274,8 +274,10 @@ void sendGet(unsigned int index)
 	int rnd = 0;
 	int lost_emt = LOST_PERCENT;
 	rnd = rand()%100;
+#ifdef LOST_PRINT
 	if(rnd <= lost_emt)
 	    printf("Lost!!: rnd = %d, lost_emt = %d, lost_posibility = %d percent\n", rnd, lost_emt, lost_emt);
+#endif
 
 	if(rnd > lost_emt)
 	{
@@ -307,9 +309,10 @@ void sendRetry(unsigned int index)
 	int rnd = 0;
 	int lost_emt = LOST_PERCENT;
 	rnd = rand()%100;
+#ifdef LOST_PRINT
 	if(rnd <= lost_emt)
 	    printf("Lost!!: rnd = %d, lost_emt = %d, lost_posibility = %d percent\n", rnd, lost_emt, lost_emt);
-
+#endif
 	if(rnd > lost_emt)
 	{
 #endif
@@ -348,8 +351,10 @@ void resend(char *data, int len, u_int32_t index)
 	int rnd = 0;
 	int lost_emt = LOST_PERCENT;
 	rnd = rand()%100;
+#ifdef LOST_PRINT
 	if(rnd <= lost_emt)
 	    printf("Lost!!: rnd = %d, lost_emt = %d, lost_posibility = %d percent\n", rnd, lost_emt, lost_emt);
+#endif
 
 	if(rnd > lost_emt)
 	{
@@ -982,9 +987,10 @@ int JEAN_send_slave(char *data, int len, unsigned char priority, unsigned char v
 	int rnd = 0;
 	int lost_emt = LOST_PERCENT;
 	rnd = rand()%100;
+#ifdef LOST_PRINT
 	if(rnd <= lost_emt)
 	    printf("Lost!!: rnd = %d, lost_emt = %d, lost_posibility = %d percent\n", rnd, lost_emt, lost_emt);
-
+#endif
 	if(rnd > lost_emt)
 	{
 #endif
