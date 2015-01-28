@@ -15,7 +15,7 @@
 
 #define server_port 61000
 #define local_port 6788
-#define server_ip "192.168.1.109"
+#define server_ip "23.89.232.109"
 
 int iStatus = STATE_DISCONNECTED; 
 int connected = 0;
@@ -32,14 +32,14 @@ int main()
 	ret = JEAN_init_slave(server_port, local_port, server_ip);
 	if( 0 > ret )
 	{
-		printf("init slave error");
+		printf("init slave error\n");
 		return -1;
 	}
 
 	ret = init_CMD_CHAN();
 	if( 0 > ret )
 	{
-		printf("init cmd error");
+		printf("init cmd error\n");
 		return -1;
 	}
 
