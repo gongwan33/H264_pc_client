@@ -17,6 +17,7 @@
 #include <p2p/commonkey.h>
 #include <p2p/ring.h>
 #include <p2p/DSet.h>
+#include <p2p/unitBuf.h>
 
 #define MAX_TRY 5
 #define SEND_BUFF_SIZE 1024*3
@@ -37,6 +38,7 @@
 #define server_port 61000
 #define server_turn_port 61001
 #define server_cmd_port 61002
+#define server_control_port 61003
 #define local_port 6788
 
 static char recvSign;
@@ -46,6 +48,7 @@ static struct ifconf ifc;
 static char ip_info[50];
 static int sockfd;
 static int cmdfd;
+static int controlfd;
 static int port, sin_size, recv_sin_len;
 static char mac[6], ip[4], buff[1024];
 static pthread_t keep_connection;
@@ -189,6 +192,22 @@ int Send_TURN(){
 int Send_CMDOPEN(){
 	char Sen_W;
 	Sen_W = CMD_CHAN;
+	char id = 'S';
+	if(strlen(USERNAME) > 10 || strlen(PASSWD) > 10) return -1;
+
+	ip_info[0] = Sen_W;
+	memcpy(ip_info + 1, USERNAME, 10);
+	memcpy(ip_info + 12, PASSWD, 10);
+	ip_info[23] = id;
+	memcpy(ip_info + 34, &host_sin, sizeof(struct sockaddr_in));
+
+	sendto(sockfd, ip_info, sizeof(ip_info), 0, (struct sockaddr *)&servaddr1, sizeof(servaddr1));
+	return 0;
+}
+
+int Send_CONTROLOPEN(){
+	char Sen_W;
+	Sen_W = CONTROL_CHAN;
 	char id = 'S';
 	if(strlen(USERNAME) > 10 || strlen(PASSWD) > 10) return -1;
 
@@ -595,6 +614,69 @@ int recv_cmd(char *data, int len)
 	return recvLen;
 }
 
+int init_CONTROL_CHAN()
+{
+	struct sockaddr_in pin;
+
+	bzero(&pin,sizeof(pin));
+	pin.sin_family = AF_INET;
+	pin.sin_addr.s_addr = inet_addr(server_ip_1);
+	pin.sin_port = htons(server_control_port);
+
+	if((controlfd = socket(AF_INET, SOCK_STREAM, 0)) == -1)
+	{
+		printf("control:Error opening socket \n");
+		return -1;
+	}
+
+	if(connect(controlfd, (void *)&pin, sizeof(pin)) == -1)
+	{
+		printf("control:Error connecting to socket \n");
+		return -1;
+	}
+
+	return 0;
+}
+
+int close_CONTROL_CHAN()
+{
+	close(controlfd);
+}
+
+int send_control(char *data, int len)
+{
+	int sendLen = 0;
+	if(len < 0)
+		return -1;
+	sendLen = send(controlfd, data, len, 0);
+	if(sendLen == -1)
+	{
+		printf("control:Error in send\n");
+		return -1;
+	}
+
+	return sendLen;
+}
+
+int recv_control(char *data, int len)
+{
+	int recvLen = 0;
+	recvLen = recv(controlfd, data, len, 0);
+	if(recvLen == -1)
+	{
+		printf("control:Error in recv\n");
+		return -1;
+	}
+
+	return recvLen;
+}
+
+void* controlChanThread(void *argc)
+{
+
+
+}
+
 void* recvData(void *argc)
 {
 	recvThreadRunning = 1;
@@ -605,6 +687,7 @@ void* recvData(void *argc)
 	socklen_t optlen = 0;
 	char *retryData;
 	u_int32_t lastIndex = 0;
+	u_int32_t lastSubIndex = 0;
 	int pauseSign = 0;
 	int recordLostNum = 0;
 	int getLostNum = 0;
@@ -620,6 +703,8 @@ void* recvData(void *argc)
 	{ 
 		printf("Fail to get recbuf size\n"); 
 	} 
+
+	initUnitList();
 
 	set_rec_timeout(0, 1);//(usec, sec)
 	while(recvSign)
@@ -651,26 +736,6 @@ void* recvData(void *argc)
 			recvProcessBufP = 0;
 		}
 
-		if(pauseSign == 0)
-		{
-			recordLostNum = 0;
-			getLostNum = 0;
-		}
-
-		if(getLostNum >= recordLostNum - 1)
-			pauseSign = 0;
-
-//		printf("buf back point at %d, pauseSign = %d\n", recvProcessBackBufP, pauseSign);
-		if(pauseSign == 0 && recvProcessBackBufP > 0)
-		{
-#if PRINT
-			printf("pause status out!\n");
-#endif
-			tidyInBuf(recvProcessBackBuf, tidyBuf, &recvProcessBackBufP);
-			memcpy(recvProcessBuf + recvProcessBufP, tidyBuf, recvProcessBackBufP);
-			recvProcessBackBufP = 0;
-		}
-
 	    if(recvProcessBufP >= sizeof(struct load_head))
 		{
 			int scanP = 0;
@@ -682,91 +747,16 @@ void* recvData(void *argc)
 			{
 				if(recvProcessBuf[scanP] == 'J' && recvProcessBuf[scanP + 1] == 'E' && recvProcessBuf[scanP + 2] == 'A' && recvProcessBuf[scanP + 3] == 'N')
 				{
-					int lostNum = 0;
 					memcpy(&head, recvProcessBuf + scanP, sizeof(struct load_head));
-					lostNum = head.index - lastIndex;
-//					printf("lastindex %d index %d \n", lastIndex, head.index);
 
-					if(pauseSign == 1 && lostNum == 1)
-						getLostNum++;
-
-					if(lostNum <= 0 && head.index != 0)
+					//drop repeated pack
+					if(head.index != 0  && (head.index < lastIndex))
 					{
 						scanP += (head.length + sizeof(struct load_head));
 						continue;
 					}
 
-					if(lostNum > 100)
-					{
-						lastIndex = head.index;
-						pauseSign = 0;
-						break;
-					}
-
-					if(head.index != 0 && lostNum > 1)
-					{
-						if(recvProcessBackBufP != 0)
-						{
-							int start, end;
-							int pri;
-							int j = 0;
-							for(j = 0; j < lostNum - 1; j++)
-							{
-								pri = findIndexInBuf(recvProcessBackBuf, &start, &end, &recvProcessBackBufP, lastIndex + j + 1);
-								//		printf("found pack in back %d\n", pri);
-								if(pri >= 0)
-								{
-									getLostNum++;
-#if PRINT
-									printf("load head: J %d\n", lastIndex + 1);
-#endif
-									if(pri > 0)
-										sendGet(lastIndex + 1);
-									lastIndex = lastIndex + j + 1;
-									if(end - start > 0)
-										memcpy(recvBuf + recvBufP, recvProcessBackBuf + start, end - start);
-									else
-									{
-#if PRINT
-										printf("Empty load!Actually lost.\n");
-#endif
-									}
-
-								}
-							}
-							break;
-						}
-#if PRINT
-						printf("lost pack happen, reget!!\n");
-#endif
-                        int i = 0;
-						pauseSign = 1;
-	//					for(i = 1;i < lostNum; i++)
-//						{
-//							sendRetry(lastIndex + i);
-							sendRetry(lastIndex + 1);
-//						}
-
-						if(recvProcessBackBufP + recvProcessBufP - scanP < MAX_RECV_BUF)
-						{
-						    memcpy(recvProcessBackBuf + recvProcessBackBufP, recvProcessBuf + scanP, recvProcessBufP - scanP);
-						    recvProcessBackBufP = recvProcessBackBufP + (recvProcessBufP - scanP);
-						    recvProcessBufP = 0;
-						}
-						else
-						{
-							printf("back buf overflow!!\n");
-							recvProcessBackBufP = 0;
-						}
-	
-						if(lostNum > recordLostNum)
-							recordLostNum = lostNum;
-
-						break;
-					}
-
-					lastIndex = head.index;
-
+					
 #if PRINT
 					printf("load head: %c %d %d %d %d\n", head.logo[0], head.index, head.get_number, head.priority, (unsigned int)head.length);
 #endif
@@ -787,11 +777,39 @@ void* recvData(void *argc)
 							printf("recv processed buf overflow!!\n");
 							recvBufP = 0;
 						}
-						pthread_mutex_lock(&recvBuf_lock);
-						memcpy(recvBuf + recvBufP, recvProcessBuf + scanP + sizeof(struct load_head), head.length);
-						recvBufP += head.length;
-						pthread_mutex_unlock(&recvBuf_lock);
+
+						if(head.totalIndex - 1 <= head.subIndex && head.totalIndex > 1)
+						{
+							char *p = NULL;
+							int pLen = 0;
+
+							pthread_mutex_lock(&recvBuf_lock);
+							if(0 ==	getUnit(head.sliceIndex, &p, &pLen))
+							{
+								memcpy(recvBuf + recvBufP, p, pLen);
+								recvBufP += pLen;	
+							}
+							memcpy(recvBuf + recvBufP, recvProcessBuf + scanP + sizeof(struct load_head), head.length);
+							recvBufP += head.length;
+							pthread_mutex_unlock(&recvBuf_lock);
+							releaseUnit(head.sliceIndex);
+						}
+						else if(head.totalIndex == 1)
+						{
+							pthread_mutex_lock(&recvBuf_lock);
+							memcpy(recvBuf + recvBufP, recvProcessBuf + scanP + sizeof(struct load_head), head.length);
+							recvBufP += head.length;
+							pthread_mutex_unlock(&recvBuf_lock);
+						}
+						else
+						{
+							addUnit(recvProcessBuf + scanP + sizeof(struct load_head), head.length, head.sliceIndex, head.address);
+						}
+
 						scanP = scanP + sizeof(struct load_head) + head.length;
+
+						lastIndex = head.index;
+						lastSubIndex = head.subIndex;
 					}
 					else
 						break;
@@ -893,11 +911,9 @@ void* recvData(void *argc)
 
 		}
 
-//		usleep(100);
 	}
 
 	recvThreadRunning = 0;
-
 }
 
 int JEAN_init_slave(int setServerPort, int setLocalPort, char *setIp)
@@ -1070,6 +1086,20 @@ int JEAN_init_slave(int setServerPort, int setLocalPort, char *setIp)
 					sleep(1);
 					printf("require cmd channel open \n");
 					Send_CMDOPEN();
+					char result = 0;
+
+					recvfrom(sockfd, Ctl_Rec, sizeof(Ctl_Rec), 0, (struct sockaddr *)&recv_sin, &recv_sin_len);
+					if(Ctl_Rec[0] == GET_REQ) 
+						break;
+				}
+
+				if(i >= MAX_TRY + 1) return OUT_TRY;
+
+				clean_rec_buff();
+				for(i = 0; i < MAX_TRY + 1 ; i++){
+					sleep(1);
+					printf("require cmd channel open \n");
+					Send_CONTROLOPEN();
 					char result = 0;
 
 					recvfrom(sockfd, Ctl_Rec, sizeof(Ctl_Rec), 0, (struct sockaddr *)&recv_sin, &recv_sin_len);
