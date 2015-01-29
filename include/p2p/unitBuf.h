@@ -4,8 +4,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#define UNITBUF_SIZE 1000*100
-#define UNITLIST_SIZE 100
+#define UNITBUF_SIZE 1000*1000
+#define UNITLIST_SIZE 5
 
 struct unitBuf {
     u_int32_t index;
@@ -25,7 +25,7 @@ void initUnitList()
 int findUnitIndex(u_int32_t index)
 {
 	int i = 0;
-	for(i = 0; i <= UNITLIST_SIZE; i++)
+	for(i = 0; i < UNITLIST_SIZE; i++)
 	{
 		if(unitList[i].index == index)
 			return i;
@@ -36,10 +36,11 @@ int findUnitIndex(u_int32_t index)
 int addUnit(char *data, int len, u_int32_t index, u_int32_t address)
 {
 	int pos = findUnitIndex(index);
+	printf("pos %d\n", pos);
 	if(-1 == pos)
 	{
 		if(unitListP < UNITLIST_SIZE - 1)
-		unitListP++;
+			unitListP++;
 		else
 		{
 			printf("unit buf pointer restart\n");
@@ -61,8 +62,13 @@ int addUnit(char *data, int len, u_int32_t index, u_int32_t address)
 	else
 	{
 		unitList[pos].len = address + len;
+		if(unitList[pos].buf == NULL)
+			unitList[pos].buf = (char *)calloc(UNITBUF_SIZE, sizeof(char));
 		if(unitList[unitListP].len < UNITBUF_SIZE)
+		{
+			printf("u21 %d %d\n", address, len);
 			memcpy(unitList[pos].buf + address, data, len);
+		}
 		else
 		{
 			printf("erro!! unitbuf buf over flow!!\n");
@@ -92,6 +98,7 @@ int releaseUnit(u_int32_t index)
 	{
 		unitList[pos].index = -1;
 		free(unitList[pos].buf);
+		unitList[pos].buf = NULL;
 		return 0;
 	}
 	else
