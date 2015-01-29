@@ -7,4 +7,4 @@
 //#define TEST_LOST 1 
 #define LOST_PERCENT 10
 //#define LOST_PRINT
-//#define TEST_TURN
+#define TEST_TURN
