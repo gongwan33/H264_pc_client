@@ -603,6 +603,11 @@ void* controlChanThread(void *argc)
 					pthread_mutex_lock(&synGetCount_lock);
 					synGetCount++;
 					pthread_mutex_unlock(&synGetCount_lock);
+
+					pthread_mutex_lock(&recvProcessBuf_lock);
+					tidyInBuf(recvProcessBackBuf, recvProcessBackBufP, recvProcessBuf, &recvProcessBufP);
+					pthread_mutex_unlock(&recvProcessBuf_lock);
+
 					sendSok();
 #if PRINT
 			printf("send Sok\n");
@@ -835,9 +840,6 @@ void* recvData(void *argc)
 			synGetCount--;
 			pthread_mutex_unlock(&synGetCount_lock);
 
-			pthread_mutex_lock(&recvProcessBuf_lock);
-			tidyInBuf(recvProcessBackBuf, recvProcessBackBufP, recvProcessBuf, &recvProcessBufP);
-			pthread_mutex_unlock(&recvProcessBuf_lock);
 			scanP = 0;
 			recvProcessBackBufP = 0;
 
