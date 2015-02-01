@@ -24,6 +24,7 @@
 #define MAX_RECEIVE 1024*1024
 #define MAX_RECV_BUF 1024*1024*5
 #define CONTROL_BUF_SIZE 2000 
+#define MTU 1000
 
 #define TURN_DATA_SIZE 1024*3
 #define KEEP_CONNECT_PACK 0
@@ -70,10 +71,10 @@ static unsigned int recvProcessBackBufP;
 static char recvThreadRunning = 0;
 struct elm elmPack[1000];
 static int elmPackP = 0;	
-static int synGetCount = 0;
 static pthread_mutex_t recvProcessBuf_lock;
 static pthread_t analyseRecvData_t;
 static int analyseRecvDataRunning = 0;
+static int scanP_g = 0;
 
 unsigned char connectionStatus = FAIL;
 
@@ -86,6 +87,7 @@ int init_CONTROL_CHAN();
 int close_CONTROL_CHAN();
 int send_control(void *, int);
 int recv_control(void *, int);
+void* analyseRecvData(void *argc);
 
 int local_net_init(int localPort){
 	memset(&local_addr, 0, sizeof(local_addr));
@@ -600,18 +602,25 @@ void* controlChanThread(void *argc)
 #if PRINT
 					printf("syn\n");
 #endif
-					pthread_mutex_lock(&synGetCount_lock);
-					synGetCount++;
-					pthread_mutex_unlock(&synGetCount_lock);
 
+					pthread_mutex_lock(&synGetCount_lock);
 					pthread_mutex_lock(&recvProcessBuf_lock);
 					tidyInBuf(recvProcessBackBuf, recvProcessBackBufP, recvProcessBuf, &recvProcessBufP);
 					pthread_mutex_unlock(&recvProcessBuf_lock);
 
+					scanP_g = 0;
+					recvProcessBackBufP = 0;
+
 					sendSok();
 #if PRINT
-			printf("send Sok\n");
+					printf("send Sok\n");
 #endif
+					pthread_mutex_unlock(&synGetCount_lock);
+
+					analyseRecvDataRunning = 1;
+					if(analyseRecvDataRunning == 1)
+						pthread_create(&analyseRecvData_t, NULL, analyseRecvData, NULL);
+
 					scanP = scanP + sizeof(struct syn_head);
 				}
 				else if(controlBuf[scanP] == 'S' && controlBuf[scanP + 1] == 'O' && controlBuf[scanP + 2] == 'K')
@@ -619,7 +628,7 @@ void* controlChanThread(void *argc)
 #if PRINT
 					printf("sok\n");
 #endif
-//					page++;
+					//					page++;
 					scanP = scanP + sizeof(struct sok_head);
 				}
 				else
@@ -661,15 +670,6 @@ void* analyseRecvData(void *argc)
 				struct load_head head;
 
 				memcpy(&head, recvProcessBuf + scanP, sizeof(struct load_head));
-
-				//		printf("index = %d\n", head.index);
-
-				//drop repeated pack
-				//					if(head.index != 0  && (head.index <= lastIndex))
-				//					{
-				//						scanP += (head.length + sizeof(struct load_head));
-				//						continue;
-				//					}
 
 #if PRINT
 				printf("load head: %c %d %d %d %d\n", head.logo[0], head.index, head.get_number, head.priority, (unsigned int)head.length);
@@ -764,7 +764,7 @@ void* recvData(void *argc)
     unsigned long curtime = 0;
 	unsigned long retryDelay = 10000;
 	struct load_head head;
-	int scanP = 0;
+	unsigned char * tempBuf = NULL;
 
 	pthread_detach(pthread_self());
 
@@ -781,74 +781,66 @@ void* recvData(void *argc)
 
 	initUnitList();
 
-	set_rec_timeout(0, 1);//(usec, sec)
+	tempBuf = (unsigned char *)malloc(MTU*100);
+
+	set_rec_timeout(0, 0);//(usec, sec)
 	while(recvSign)
 	{
 		recvLen = 0;
 
-		if(synGetCount <= 0)
+		if(connectionStatus == P2P)
 		{
-			if(connectionStatus == P2P)
-			{
-				recvLen = recvfrom(sockfd, recvProcessBackBuf + recvProcessBackBufP, MAX_RECEIVE, 0, (struct sockaddr *)&recv_sin, &recv_sin_len);
-			}
-			else if(connectionStatus == TURN)
-			{
-				recvLen = recvfrom(sockfd, recvProcessBackBuf + recvProcessBackBufP, MAX_RECEIVE, 0, (struct sockaddr *)&recv_sin, &recv_sin_len);
-			}
-			else 
-				break;
-
-			if(recvLen <= 0)
-			{
-				//			usleep(100);
-				continue;
-			}
-
-			getNum += recvLen;
-			recvProcessBackBufP += recvLen;
-
-			if(recvProcessBackBufP > MAX_RECV_BUF - recv_size)
-			{
-				printf("recvBuf overflow!!\n");
-				recvProcessBackBufP = 0;
-			}
-
-			while(scanP + sizeof(struct load_head) < recvProcessBackBufP)
-			{
-				if(recvProcessBackBuf[scanP] == 'J' && recvProcessBackBuf[scanP + 1] == 'E' && recvProcessBackBuf[scanP + 2] == 'A' && recvProcessBackBuf[scanP + 3] == 'N')
-				{
-					memcpy(&head, recvProcessBackBuf + scanP, sizeof(struct load_head));
-					if(head.priority > 0)
-						sendGet(head.index);
-//					printf("index = %d\n", head.index);
-
-					if(recvProcessBackBufP - scanP - sizeof(struct load_head) >= head.length)
-						scanP = scanP + sizeof(struct load_head) + head.length;
-					else
-						break;
-				}
-				else
-					scanP++;
-			}
-
-			continue;
+			recvLen = recvfrom(sockfd, tempBuf, MTU * 100, 0, (struct sockaddr *)&recv_sin, &recv_sin_len);
+		}
+		else if(connectionStatus == TURN)
+		{
+			recvLen = recvfrom(sockfd, tempBuf, MTU * 100, 0, (struct sockaddr *)&recv_sin, &recv_sin_len);
 		}
 		else
-		{
-			pthread_mutex_lock(&synGetCount_lock);
-			synGetCount--;
-			pthread_mutex_unlock(&synGetCount_lock);
-
-			scanP = 0;
-			recvProcessBackBufP = 0;
-
-			analyseRecvDataRunning = 1;
-			if(analyseRecvDataRunning == 1)
-				pthread_create(&analyseRecvData_t, NULL, analyseRecvData, NULL);
+		{	
+			sleep(1);
+			continue;
 		}
 
+		if(recvLen <= 0)
+		{
+			continue;
+		}
+
+		pthread_mutex_lock(&synGetCount_lock);
+		memcpy(recvProcessBackBuf + recvProcessBackBufP, tempBuf, recvLen);
+
+		getNum += recvLen;
+		recvProcessBackBufP += recvLen;
+
+		if(recvProcessBackBufP > MAX_RECV_BUF - recv_size)
+		{
+			printf("recvBuf overflow!!\n");
+			recvProcessBackBufP = 0;
+		}
+
+		while(scanP_g + sizeof(struct load_head) < recvProcessBackBufP)
+		{
+			if(recvProcessBackBuf[scanP_g] == 'J' && recvProcessBackBuf[scanP_g + 1] == 'E' && recvProcessBackBuf[scanP_g + 2] == 'A' && recvProcessBackBuf[scanP_g + 3] == 'N')
+			{
+				memcpy(&head, recvProcessBackBuf + scanP_g, sizeof(struct load_head));
+				if(head.priority > 0)
+					sendGet(head.index);
+				printf("index = %d\n", head.index);
+
+				if(recvProcessBackBufP - scanP_g - sizeof(struct load_head) >= head.length)
+					scanP_g = scanP_g + sizeof(struct load_head) + head.length;
+				else
+					break;
+			}
+			else
+				scanP_g++;
+		}
+		pthread_mutex_unlock(&synGetCount_lock);
+
 	}
+
+	free(tempBuf);
 	recvThreadRunning = 0;
 }
 

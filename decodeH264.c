@@ -109,6 +109,7 @@ void video_decode()
 	while(avpkt.size > 0) {  
 		len = avcodec_decode_video2(c,picture, &got_picture, &avpkt);//解码每一帧  
 
+		printf("ffmpeg: len = %d got_picture = %d\n", len, got_picture);
 		IplImage *showImage = cvCreateImage(cvSize(picture->width, picture->height), 8, 3);  
 		avpicture_alloc((AVPicture *)&frameRGB, PIX_FMT_BGR24, picture->width, picture->height);  
 
