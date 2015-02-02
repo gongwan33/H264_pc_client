@@ -31,7 +31,8 @@
 //#define server_ip_1 "192.168.1.216"
 //#define server_ip_1 "192.168.1.114"
 //#define server_ip_1 "192.168.1.4"
-#define server_ip_1 "192.168.1.109"
+//#define server_ip_1 "192.168.1.109"
+#define server_ip_1 "192.168.1.149"
 
 #define USERNAME "wang"
 #define PASSWD "123456"
@@ -75,6 +76,7 @@ static pthread_mutex_t recvProcessBuf_lock;
 static pthread_t analyseRecvData_t;
 static int analyseRecvDataRunning = 0;
 static int scanP_g = 0;
+static unsigned char windowLen = 0; //should not larger than 255
 
 unsigned char connectionStatus = FAIL;
 
@@ -82,6 +84,12 @@ int JEAN_recv_timeout = 1000;//1s
 int commonKey = 0;
 static int controlChanThreadRunning = 0;
 static pthread_t control_t;
+static unsigned int lastAdd = 0;
+static unsigned int lastSliceIndex = 0;
+static unsigned int lastHeadLen = 0;
+static unsigned int lastTotalLen = 0;
+static unsigned int page = 0;
+static unsigned int recvPage = 0;
 
 int init_CONTROL_CHAN();
 int close_CONTROL_CHAN();
@@ -315,6 +323,20 @@ void sendGet(unsigned int index)
 	memcpy(buf + sizeof(getSt), num, 4);
 	
 	send_control(buf, sizeof(struct get_head) + sizeof(u_int32_t));
+	free(buf);
+}
+
+void sendWin(unsigned char winLen)
+{
+	struct win_head winSt;
+	unsigned char * buf;
+	memcpy(&winSt, "WIN", 3);
+	buf = (char *)malloc(sizeof(struct win_head) + sizeof(unsigned char));
+	memcpy(buf, &winSt, sizeof(struct win_head));
+	buf[4] = winLen;
+	
+	send_control(buf, sizeof(struct win_head) + sizeof(unsigned char));
+	free(buf);
 }
 
 void sendSok()
@@ -557,6 +579,8 @@ void* controlChanThread(void *argc)
 {
 	controlChanThreadRunning = 1;
 
+	pthread_detach(pthread_self());
+
 	int recvLen = 0;
 	unsigned char controlBuf[CONTROL_BUF_SIZE];
 	int controlBufP = 0;
@@ -578,15 +602,13 @@ void* controlChanThread(void *argc)
 			{
 				if(controlBuf[scanP] == 'G' && controlBuf[scanP + 1] == 'E' && controlBuf[scanP + 2] == 'T')
 				{
-					memcpy(&get, controlBuf + scanP, sizeof(struct get_head));
+		//			memcpy(&get, controlBuf + scanP, sizeof(struct get_head));
 					
 					if(controlBufP - scanP - sizeof(struct get_head) >= sizeof(u_int32_t))
 					{
 						unsigned int index = 0;
 						index = ((controlBuf[scanP + 3]) | (controlBuf[scanP + 4]<<8) | (controlBuf[scanP + 5]<<16) | (controlBuf[scanP + 6]<<24));
-//						pthread_mutex_lock(&ring_lock);
 						unreg_buff(index);
-//						pthread_mutex_unlock(&ring_lock);
 						scanP = scanP + sizeof(struct get_head) + sizeof(u_int32_t);
 #if PRINT
 						printf("get %d\n", index);
@@ -611,6 +633,7 @@ void* controlChanThread(void *argc)
 					scanP_g = 0;
 					recvProcessBackBufP = 0;
 
+					recvPage++;
 					sendSok();
 #if PRINT
 					printf("send Sok\n");
@@ -628,8 +651,23 @@ void* controlChanThread(void *argc)
 #if PRINT
 					printf("sok\n");
 #endif
-					//					page++;
+					page++;
 					scanP = scanP + sizeof(struct sok_head);
+				}
+				else if(controlBuf[scanP] == 'W' && controlBuf[scanP + 1] == 'I' && controlBuf[scanP + 2] == 'N')
+				{
+					
+					if(controlBufP - scanP - sizeof(struct win_head) >= sizeof(unsigned char))
+					{
+						windowLen = controlBuf[scanP + 3];
+
+						scanP = scanP + sizeof(struct get_head) + sizeof(unsigned char);
+#if PRINT
+						printf("win %d\n", windowLen);
+#endif
+					}
+					else 
+						break;
 				}
 				else
 					scanP++;
@@ -657,6 +695,7 @@ void* analyseRecvData(void *argc)
 {
 	analyseRecvDataRunning = 1;
 
+	pthread_detach(pthread_self());
 	int scanP = 0;
 
 	pthread_mutex_lock(&recvProcessBuf_lock);
@@ -672,7 +711,7 @@ void* analyseRecvData(void *argc)
 				memcpy(&head, recvProcessBuf + scanP, sizeof(struct load_head));
 
 #if PRINT
-				printf("load head: %c %d %d %d %d\n", head.logo[0], head.index, head.get_number, head.priority, (unsigned int)head.length);
+				printf("load head: %c %d %d %d %d %d %d\n", head.logo[0], head.index, head.priority, (unsigned int)head.length, head.address, head.totalLen, head.sliceIndex);
 #endif
 				if(recvProcessBufP - scanP - sizeof(struct load_head) >= head.length)
 				{
@@ -687,36 +726,44 @@ void* analyseRecvData(void *argc)
 					if(recvBufP + head.length > MAX_RECV_BUF)
 					{
 						printf("recv processed buf overflow!!\n");
+						pthread_mutex_lock(&recvBuf_lock);
 						recvBufP = 0;
+						pthread_mutex_unlock(&recvBuf_lock);
 					}
 
-					if(head.totalIndex - 1 <= head.subIndex && head.totalIndex > 1)
+					if(head.sliceIndex == lastSliceIndex && head.address - lastAdd > lastHeadLen)
 					{
-						char *p = NULL;
-						int pLen = 0;
-
+						printf("lost case1\n");
 						pthread_mutex_lock(&recvBuf_lock);
-						if(0 ==	getUnit(head.sliceIndex, &p, &pLen))
-						{
-							memcpy(recvBuf + recvBufP, p, pLen);
-							recvBufP += pLen;	
-						}
+						memset(recvBuf + recvBufP, 0, head.address - lastAdd + lastHeadLen);
+						recvBufP += (head.address - lastAdd + lastHeadLen);
 						memcpy(recvBuf + recvBufP, recvProcessBuf + scanP + sizeof(struct load_head), head.length);
 						recvBufP += head.length;
 						pthread_mutex_unlock(&recvBuf_lock);
-						releaseUnit(head.sliceIndex);
 					}
-					else if(head.totalIndex == 1)
+					else if(lastSliceIndex - head.sliceIndex >= 1 && (head.address != 0 || lastTotalLen != lastAdd + lastHeadLen))
 					{
+						printf("lost case2\n");
 						pthread_mutex_lock(&recvBuf_lock);
+						memset(recvBuf + recvBufP, 0, head.address + lastTotalLen - lastAdd + lastHeadLen);
+						recvBufP += (head.address + lastTotalLen - lastAdd + lastHeadLen);
 						memcpy(recvBuf + recvBufP, recvProcessBuf + scanP + sizeof(struct load_head), head.length);
 						recvBufP += head.length;
 						pthread_mutex_unlock(&recvBuf_lock);
 					}
 					else
 					{
-						addUnit(recvProcessBuf + scanP + sizeof(struct load_head), head.length, head.sliceIndex, head.address);
+						printf("normal case\n");
+						pthread_mutex_lock(&recvBuf_lock);
+						memcpy(recvBuf + recvBufP, recvProcessBuf + scanP + sizeof(struct load_head), head.length);
+						recvBufP += head.length;
+						pthread_mutex_unlock(&recvBuf_lock);
 					}
+
+					lastAdd = head.address;
+					lastSliceIndex = head.sliceIndex;
+					lastHeadLen = head.length;
+					lastTotalLen = head.totalLen;
 
 					scanP = scanP + sizeof(struct load_head) + head.length;
 
@@ -762,9 +809,10 @@ void* recvData(void *argc)
 	struct timeval tv;
     unsigned long lasttime = 0;
     unsigned long curtime = 0;
-	unsigned long retryDelay = 10000;
 	struct load_head head;
 	unsigned char * tempBuf = NULL;
+	int tempBufLen = MTU*100;
+
 
 	pthread_detach(pthread_self());
 
@@ -781,7 +829,7 @@ void* recvData(void *argc)
 
 	initUnitList();
 
-	tempBuf = (unsigned char *)malloc(MTU*100);
+	tempBuf = (unsigned char *)malloc(tempBufLen);
 
 	set_rec_timeout(0, 0);//(usec, sec)
 	while(recvSign)
@@ -790,11 +838,11 @@ void* recvData(void *argc)
 
 		if(connectionStatus == P2P)
 		{
-			recvLen = recvfrom(sockfd, tempBuf, MTU * 100, 0, (struct sockaddr *)&recv_sin, &recv_sin_len);
+			recvLen = recvfrom(sockfd, tempBuf, tempBufLen, 0, (struct sockaddr *)&recv_sin, &recv_sin_len);
 		}
 		else if(connectionStatus == TURN)
 		{
-			recvLen = recvfrom(sockfd, tempBuf, MTU * 100, 0, (struct sockaddr *)&recv_sin, &recv_sin_len);
+			recvLen = recvfrom(sockfd, tempBuf, tempBufLen, 0, (struct sockaddr *)&recv_sin, &recv_sin_len);
 		}
 		else
 		{	
@@ -808,16 +856,17 @@ void* recvData(void *argc)
 		}
 
 		pthread_mutex_lock(&synGetCount_lock);
-		memcpy(recvProcessBackBuf + recvProcessBackBufP, tempBuf, recvLen);
 
-		getNum += recvLen;
-		recvProcessBackBufP += recvLen;
-
-		if(recvProcessBackBufP > MAX_RECV_BUF - recv_size)
+		if(recvProcessBackBufP > MAX_RECV_BUF - tempBufLen)
 		{
 			printf("recvBuf overflow!!\n");
 			recvProcessBackBufP = 0;
 		}
+
+		memcpy(recvProcessBackBuf + recvProcessBackBufP, tempBuf, recvLen);
+
+		getNum += recvLen;
+		recvProcessBackBufP += recvLen;
 
 		while(scanP_g + sizeof(struct load_head) < recvProcessBackBufP)
 		{
@@ -826,6 +875,15 @@ void* recvData(void *argc)
 				memcpy(&head, recvProcessBackBuf + scanP_g, sizeof(struct load_head));
 				if(head.priority > 0)
 					sendGet(head.index);
+
+				if(head.index/windowLen != recvPage)
+				{
+					recvProcessBackBufP -= recvLen;
+#if PRINT
+					printf("err: other page data mixed!!\n");
+#endif
+				}
+
 				printf("index = %d\n", head.index);
 
 				if(recvProcessBackBufP - scanP_g - sizeof(struct load_head) >= head.length)
@@ -1107,7 +1165,6 @@ int JEAN_send_slave(char *data, int len, unsigned char priority, unsigned char v
 	buffer = (char *)malloc(len + sizeof(struct load_head));
 	memcpy(lHead.logo, "JEAN", 4);
 	lHead.index = sendIndex;
-	lHead.get_number = getNum;
 	lHead.priority = priority;
 	lHead.length = len;
 	lHead.direction = 0;
