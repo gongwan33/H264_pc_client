@@ -201,83 +201,77 @@ int set_rec_timeout(int usec, int sec){
 }
 
 int Send_TURN(){
-	char Sen_W;
-	Sen_W = TURN_REQ;
-	if(strlen(USERNAME) > 10 || strlen(PASSWD) > 10) return -1;
+	struct p2p_head head;
+	memcpy(&head.logo, "TRN", 3);
 
-	ip_info[0] = Sen_W;
-	memcpy(ip_info + 1, USERNAME, 10);
-	memcpy(ip_info + 12, PASSWD, 10);
-	memcpy(ip_info + 34, &host_sin, sizeof(struct sockaddr_in));
-
-	sendto(sockfd, ip_info, sizeof(ip_info), 0, (struct sockaddr *)&servaddr1, sizeof(servaddr1));
+	sendto(sockfd, &head, sizeof(struct p2p_head), 0, (struct sockaddr *)&servaddr1, sizeof(servaddr1));
 	return 0;
 }
 
 int Send_CMDOPEN(){
-	char Sen_W;
-	Sen_W = CMD_CHAN;
-	char id = 'S';
-	if(strlen(USERNAME) > 10 || strlen(PASSWD) > 10) return -1;
+	struct p2p_head head;
+	memcpy(&head.logo, "CMD", 3);
+	head.data[0] = 'S';
 
-	ip_info[0] = Sen_W;
-	memcpy(ip_info + 1, USERNAME, 10);
-	memcpy(ip_info + 12, PASSWD, 10);
-	ip_info[23] = id;
-	memcpy(ip_info + 34, &host_sin, sizeof(struct sockaddr_in));
-
-	sendto(sockfd, ip_info, sizeof(ip_info), 0, (struct sockaddr *)&servaddr1, sizeof(servaddr1));
+	sendto(sockfd, &head, sizeof(struct p2p_head), 0, (struct sockaddr *)&servaddr1, sizeof(servaddr1));
 	return 0;
 }
 
 int Send_CONTROLOPEN(){
-	char Sen_W;
-	Sen_W = CONTROL_CHAN;
-	char id = 'S';
-	if(strlen(USERNAME) > 10 || strlen(PASSWD) > 10) return -1;
+	struct p2p_head head;
+	memcpy(&head.logo, "CTL", 3);
+	head.data[0] = 'S';
 
-	ip_info[0] = Sen_W;
-	memcpy(ip_info + 1, USERNAME, 10);
-	memcpy(ip_info + 12, PASSWD, 10);
-	ip_info[23] = id;
-	memcpy(ip_info + 34, &host_sin, sizeof(struct sockaddr_in));
-
-	sendto(sockfd, ip_info, sizeof(ip_info), 0, (struct sockaddr *)&servaddr1, sizeof(servaddr1));
+	sendto(sockfd, &head, sizeof(struct p2p_head), 0, (struct sockaddr *)&servaddr1, sizeof(servaddr1));
 	return 0;
 }
 
 int Send_VUAPS(){
-	char Sen_W;
-	Sen_W = V_UAP_S;
-	if(strlen(USERNAME) > 10 || strlen(PASSWD) > 10) return -1;
+	struct p2p_head head;
+	memcpy(&head.logo, "SUP", 3);
+	if(strlen(USERNAME) > 10 || strlen(PASSWD) > 10) 
+		return -1;
 
-	ip_info[0] = Sen_W;
-	memcpy(ip_info + 1, USERNAME, 10);
-	memcpy(ip_info + 12, PASSWD, 10);
-	memcpy(ip_info + 34, &host_sin, sizeof(struct sockaddr_in));
+	memcpy(head.data, USERNAME, 10);
+	memcpy(head.data + 10, PASSWD, 10);
+	memcpy(head.data + 20, &host_sin, sizeof(struct sockaddr_in));
 
-	sendto(sockfd, ip_info, sizeof(ip_info), 0, (struct sockaddr *)&servaddr1, sizeof(servaddr1));
+	sendto(sockfd, &head, sizeof(struct p2p_head), 0, (struct sockaddr *)&servaddr1, sizeof(servaddr1));
 	return 0;
 }
 
 void Send_IP_REQ(){
-	char Sen_W;
-	Sen_W = REQ_M_IP;
-	sprintf(ip_info,"%c %s", Sen_W, USERNAME);
-	sendto(sockfd, ip_info, sizeof(ip_info), 0, (struct sockaddr *)&servaddr1, sizeof(servaddr1));
+	struct p2p_head head;
+	memcpy(&head.logo, "MIP", 3);
+	memcpy(head.data, USERNAME, 10);
+	sendto(sockfd, &head, sizeof(struct p2p_head), 0, (struct sockaddr *)&servaddr1, sizeof(servaddr1));
 }
 
 void Send_POL(char req,struct sockaddr_in * sock){
-	ip_info[0] = req;
-	if(req == POL_SENT) 
-		memcpy(ip_info + 1, USERNAME, 10);
-	sendto(sockfd, ip_info, sizeof(ip_info), 0, (struct sockaddr *)sock, sizeof(struct sockaddr_in));
+	struct p2p_head head;
+	if(req == POL_SENT)
+	{
+		memcpy(&head.logo, "POL", 3);
+		memcpy(head.data, USERNAME, 10);
+		sendto(sockfd, &head, sizeof(struct p2p_head), 0, (struct sockaddr *)sock, sizeof(struct sockaddr_in));
+		return;
+	}
+	else
+	{
+		ip_info[0] = req;
+		sendto(sockfd, ip_info, sizeof(ip_info), 0, (struct sockaddr *)sock, sizeof(struct sockaddr_in));
+		return;
+	}
 }
 
 void Send_CMD(char Ctls, char Res){
-	ip_info[0] = Ctls;
-	ip_info[1] = Res;
-	sendto(sockfd, ip_info, sizeof(ip_info), 0, (struct sockaddr *)&servaddr1, sizeof(servaddr1));
+	struct p2p_head head;
+	if(Ctls == GET_REQ)
+		memcpy(head.logo, "GRQ", 3);
+	else if(Ctls == KEEP_CON)
+		memcpy(head.logo, "KEP", 3);
+	head.data[0] = Res;
+	sendto(sockfd, &head, sizeof(struct p2p_head), 0, (struct sockaddr *)&servaddr1, sizeof(servaddr1));
 }
 
 void Send_CMD_TO_MASTER(char Ctls, char Res){

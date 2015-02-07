@@ -113,7 +113,6 @@ void video_decode()
 		IplImage *showImage = cvCreateImage(cvSize(picture->width, picture->height), 8, 3);  
 		avpicture_alloc((AVPicture *)&frameRGB, PIX_FMT_BGR24, picture->width, picture->height);  
 
-
 		if(len < 0) {  
 			printf("Error while decoding frame %d\n",frame);  
 			break;  

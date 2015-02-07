@@ -67,7 +67,12 @@ struct sok_head {
 };
 
 struct win_head {
-	char logo[3];
+    char logo[3];
+};
+
+struct p2p_head {
+    char logo[3];
+	unsigned char data[40];
 };
 
 struct elm{
