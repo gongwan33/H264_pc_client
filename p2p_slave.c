@@ -1071,7 +1071,7 @@ int JEAN_init_slave(int setServerPort, int setLocalPort, char *setIp)
 				pole_res = Ctl_Rec[1];
 //				commonKey = (Ctl_Rec[2] | (Ctl_Rec[3]<<8) | (Ctl_Rec[4]<<16) | (Ctl_Rec[5]<<24));
 				Send_CMD(GET_REQ, 0x14);
-//				printf("Pole result = %d, key = 0x%x.\n", pole_res, commonKey);
+				printf("Pole result = %d, key = 0x%x.\n", pole_res, commonKey);
 				Pole_ret = pole_res;
 #ifndef TEST_TURN
 				if(Pole_ret == 1)
@@ -1081,6 +1081,7 @@ int JEAN_init_slave(int setServerPort, int setLocalPort, char *setIp)
 				{
 					int i = 0;
 					connectionStatus = TURN;
+					set_rec_timeout(0, 1);//(usec, sec)
 					for(i = 0; i < MAX_TRY + 1 ; i++){
 						printf("send turn \n");
 						Send_TURN();
@@ -1163,7 +1164,7 @@ int JEAN_init_slave(int setServerPort, int setLocalPort, char *setIp)
 
 			if(i >= MAX_TRY){
 				Send_CMD(GET_REQ, 0x11);
-				printf("Pole failed! Requiring slave mode.");
+				printf("Pole failed! Requiring slave mode.\n");
 			}
 
 			break;	
