@@ -128,7 +128,7 @@ void video_decode()
 				showImage->imageSize = frameRGB.linesize[0];//指针赋值给要显示的图像  
 				showImage->imageData = (char *)frameRGB.data[0];  
 				cvShowImage("decode", showImage);//显示 
-				cvWaitKey(30);//设置显示一帧，如果不设置由于这是个循环，会导致看不到显示出来的图像  
+				cvWaitKey(40);//设置显示一帧，如果不设置由于这是个循环，会导致看不到显示出来的图像  
 			}
 			avpicture_free((AVPicture *)&frameRGB);
 			cvReleaseImage(&showImage);

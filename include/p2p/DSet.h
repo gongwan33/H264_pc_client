@@ -4,6 +4,7 @@
  */
 
 #define PRINT 1
+#define PRINT_TIME 1
 //#define TEST_LOST 1 
 #define LOST_PERCENT 10
 //#define LOST_PRINT

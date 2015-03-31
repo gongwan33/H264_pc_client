@@ -32,7 +32,7 @@
 //#define server_ip_1 "192.168.1.114"
 //#define server_ip_1 "192.168.1.4"
 //#define server_ip_1 "192.168.1.109"
-#define server_ip_1 "192.168.1.149"
+#define server_ip_1 "103.226.127.42"
 
 #define USERNAME "wang"
 #define PASSWD "123456"
@@ -96,6 +96,14 @@ int close_CONTROL_CHAN();
 int send_control(void *, int);
 int recv_control(void *, int);
 void* analyseRecvData(void *argc);
+
+long timeDelta(struct timeval *tvs, struct timeval *tve)
+{
+	long s, e;
+	s = ((long)tvs->tv_sec)*1000000 + (long)tvs->tv_usec; 
+	e = ((long)tve->tv_sec)*1000000 + (long)tve->tv_usec; 
+	return (e - s);
+}
 
 int local_net_init(int localPort){
 	memset(&local_addr, 0, sizeof(local_addr));
@@ -619,6 +627,10 @@ void* controlChanThread(void *argc)
 					printf("syn\n");
 #endif
 
+#if PRINT_TIME
+					struct timeval tvs, tve;
+					gettimeofday(&tvs, NULL);
+#endif
 					pthread_mutex_lock(&synGetCount_lock);
 					pthread_mutex_lock(&recvProcessBuf_lock);
 					tidyInBuf(recvProcessBackBuf, recvProcessBackBufP, recvProcessBuf, &recvProcessBufP);
@@ -629,14 +641,25 @@ void* controlChanThread(void *argc)
 
 					recvPage++;
 					sendSok();
+
+#if PRINT_TIME
+					gettimeofday(&tve, NULL);
+					long delta = timeDelta(&tvs, &tve);
+					printf("syn and sok use %d us\n", (int)delta);
+#endif
+
 #if PRINT
 					printf("send Sok\n");
 #endif
 					pthread_mutex_unlock(&synGetCount_lock);
 
-					analyseRecvDataRunning = 1;
-					if(analyseRecvDataRunning == 1)
+					if(analyseRecvDataRunning == 0)
+					{
+						analyseRecvDataRunning = 1;
 						pthread_create(&analyseRecvData_t, NULL, analyseRecvData, NULL);
+					}
+					else
+						printf("is already analysing!!!!!!!!\n");
 
 					scanP = scanP + sizeof(struct syn_head);
 				}
